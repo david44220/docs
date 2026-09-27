@@ -1,0 +1,7 @@
+# Local configuration & runtime data
+/app/config.php
+/storage/installed.lock
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/uploads/proofs/*
+!/storage/uploads/proofs/.gitkeep

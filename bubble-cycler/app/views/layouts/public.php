@@ -8,7 +8,7 @@ $me = current_user();
 ?><!doctype html>
 <html lang="en">
 <head>
-<?= partial('head', ['title' => $title ?? site_name()]) ?>
+<?= partial('head', ['title' => $title ?? site_name(), 'indexable' => true]) ?>
 </head>
 <body class="site">
 <a class="skip-link" href="#content">Skip to content</a>
@@ -55,6 +55,7 @@ $me = current_user();
             <a href="<?= e(url('register.php')) ?>">Create account</a>
             <a href="<?= e(url('login.php')) ?>">Sign in</a>
             <a href="<?= e(url('terms.php')) ?>">Terms &amp; risks</a>
+            <a href="<?= e(url('privacy.php')) ?>">Privacy</a>
             <?php if (setting('support_email') !== ''): ?><a href="mailto:<?= e(setting('support_email')) ?>">Support</a><?php endif; ?>
         </nav>
     </div>

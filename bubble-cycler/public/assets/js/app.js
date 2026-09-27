@@ -68,7 +68,7 @@
   }));
   $$('[data-file-input]').forEach((input) => input.addEventListener('change', () => {
     const label = input.closest('.file')?.querySelector('[data-file-name]');
-    if (label) label.textContent = input.files?.[0]?.name || 'Choose an image (max 4 MB)';
+    if (label) label.textContent = input.files?.[0]?.name || label.dataset.default || 'Choose an image';
   }));
   $$('[data-count]').forEach((field) => {
     const out = $(`[data-count-for="${field.dataset.count}"]`);
@@ -380,6 +380,38 @@
       col.addEventListener('pointerleave', hide);
       col.addEventListener('blur', hide);
     });
+  });
+
+  /* ---------- Two-factor setup QR code ------------------------------------------------- */
+  $$('[data-qr]').forEach((box) => {
+    const uri = box.dataset.qr;
+    if (!uri || typeof window.qrcode !== 'function') return;
+    const qr = window.qrcode(0, 'M');
+    qr.addData(uri);
+    qr.make();
+    const count = qr.getModuleCount();
+    const margin = 3;
+    const size = count + margin * 2;
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    const background = document.createElementNS(ns, 'rect');
+    background.setAttribute('width', String(size));
+    background.setAttribute('height', String(size));
+    background.setAttribute('fill', '#ffffff');
+    let d = '';
+    for (let row = 0; row < count; row++) {
+      for (let col = 0; col < count; col++) {
+        if (qr.isDark(row, col)) d += `M${col + margin} ${row + margin}h1v1h-1z`;
+      }
+    }
+    const modules = document.createElementNS(ns, 'path');
+    modules.setAttribute('d', d);
+    modules.setAttribute('fill', '#0b0c1a');
+    svg.append(background, modules);
+    box.replaceChildren(svg);
+    box.classList.add('is-ready');
   });
 
   /* ---------- Live pool refresh --------------------------------------------------------- */

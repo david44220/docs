@@ -3,6 +3,7 @@
  * Public JSON feed used to refresh the live pool widgets.
  *   GET api.php?a=pool
  */
+const STATELESS = true;
 require __DIR__ . '/../app/bootstrap.php';
 
 if (query('a') !== 'pool') {

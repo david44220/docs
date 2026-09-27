@@ -66,7 +66,7 @@ function ad_start_view(int $userId): ?array
         'started_at'  => now(),
         'ip'          => PHP_SAPI === 'cli' ? null : client_ip(),
     ]);
-    $view = row('SELECT * FROM ad_views WHERE id = ?', [$id]);
+    $view = row_required('SELECT * FROM ad_views WHERE id = ?', [$id]);
     return ['view' => $view, 'campaign' => $campaign, 'remaining' => $seconds];
 }
 

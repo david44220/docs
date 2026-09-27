@@ -36,9 +36,10 @@
                     <span class="input-icon"><?= icon('key') ?><input class="input" type="password" name="password_confirm" minlength="8" autocomplete="new-password" required></span>
                 </label>
             </div>
+            <label class="hp" aria-hidden="true">Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
             <label class="check">
                 <input type="checkbox" name="terms" value="1" required>
-                <span>I have read the <a href="<?= e(url('terms.php')) ?>" target="_blank" rel="noopener">terms &amp; risk disclosure</a> and understand that bubble payouts are not guaranteed.</span>
+                <span>I have read the <a href="<?= e(url('terms.php')) ?>" target="_blank" rel="noopener">terms &amp; risk disclosure</a> and the <a href="<?= e(url('privacy.php')) ?>" target="_blank" rel="noopener">privacy policy</a>, and I understand that bubble payouts are not guaranteed.</span>
             </label>
             <button class="btn btn--primary btn--lg btn--block" type="submit"><?= icon('sparkles') ?> Create account</button>
         </form>

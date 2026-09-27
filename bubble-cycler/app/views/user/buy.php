@@ -6,6 +6,7 @@
  * @var array $quote
  * @var int $quantity
  * @var string $wallet
+ * @var string $nonce     one-time form token
  */
 $price = setting_int('bubble_price');
 $share = setting_int('pool_share');
@@ -63,7 +64,7 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
             <footer class="adgate__foot">
                 <p class="adgate__status" data-ad-status>
                     <?php if ($locked): ?>
-                        <?= icon('lock') ?> <span>Your purchase unlocks in <b data-countdown-text><?= (int) $ad['remaining'] ?>s</b>. Keep this tab open.</span>
+                        <?= icon('lock') ?> <span>Your purchase unlocks in <b data-countdown-text><?= (int) $ad['remaining'] ?>s</b>. Keep this tab open.<noscript> JavaScript is off: reload this page when the time is up.</noscript></span>
                     <?php else: ?>
                         <?= icon('unlock') ?> <span>Thanks for watching — your purchase is unlocked.</span>
                     <?php endif; ?>
@@ -99,6 +100,7 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
           data-balance-purchase="<?= (int) $user['purchase_balance'] ?>" data-balance-cash="<?= (int) $user['cash_balance'] ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="ad_token" value="<?= e($token) ?>">
+        <input type="hidden" name="nonce" value="<?= e($nonce) ?>">
 
         <header class="card__head">
             <div>

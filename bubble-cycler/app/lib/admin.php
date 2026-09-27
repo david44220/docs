@@ -29,7 +29,7 @@ function admin_pending_counts(): array
 function admin_stats(): array
 {
     $pool = pool_state();
-    $users = row(
+    $users = row_required(
         "SELECT COUNT(*) AS total,
                 COALESCE(SUM(created_at >= ?), 0) AS today,
                 COALESCE(SUM(status = 'banned'), 0) AS banned,
@@ -39,19 +39,19 @@ function admin_stats(): array
            FROM users",
         [gmdate('Y-m-d 00:00:00')]
     );
-    $deposits = row(
+    $deposits = row_required(
         "SELECT COALESCE(SUM(CASE WHEN status = 'approved' THEN credit_amount END), 0) AS approved,
                 COALESCE(SUM(CASE WHEN status = 'pending' THEN amount END), 0) AS pending_amount,
                 COALESCE(SUM(status = 'pending'), 0) AS pending
            FROM deposits"
     );
-    $withdrawals = row(
+    $withdrawals = row_required(
         "SELECT COALESCE(SUM(CASE WHEN status = 'paid' THEN amount END), 0) AS paid,
                 COALESCE(SUM(CASE WHEN status = 'pending' THEN amount END), 0) AS pending_amount,
                 COALESCE(SUM(status = 'pending'), 0) AS pending
            FROM withdrawals"
     );
-    $ads = row(
+    $ads = row_required(
         "SELECT COALESCE(SUM(status = 'active' AND is_house = 0), 0) AS active,
                 COALESCE(SUM(status = 'pending'), 0) AS pending,
                 COALESCE(SUM(views), 0) AS views,
@@ -81,7 +81,8 @@ function admin_daily_series(int $days = 14): array
         $bought[$r['d']] = (int) $r['n'];
     }
     $expired = [];
-    foreach (rows("SELECT DATE(expired_at) AS d, COUNT(*) AS n FROM bubbles WHERE status = 'expired' AND expired_at >= ? GROUP BY DATE(expired_at)", [$start . ' 00:00:00']) as $r) {
+    // expired_at is only set on expired bubbles: its index alone answers this.
+    foreach (rows('SELECT DATE(expired_at) AS d, COUNT(*) AS n FROM bubbles WHERE expired_at >= ? GROUP BY DATE(expired_at)', [$start . ' 00:00:00']) as $r) {
         $expired[$r['d']] = (int) $r['n'];
     }
     $series = [];
@@ -143,9 +144,36 @@ function admin_set_user_role(int $adminId, int $userId, string $role): void
 
 function admin_reset_password(int $adminId, int $userId, string $password): void
 {
-    validate_password($password);
+    validate_password($password, (string) val('SELECT username FROM users WHERE id = ?', [$userId]));
     q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $userId]);
     admin_log($adminId, 'user.password', sprintf('Reset the password of member #%d', $userId));
+    notify_member($userId, 'Your password was reset', 'Your password was reset by support', [
+        'An administrator set a new password on your ' . site_name() . ' account. Your other devices were signed out.',
+        'If you did not ask for this, contact support immediately.',
+    ], security: true);
+}
+
+/** For members who lost both their phone and their recovery codes. */
+function admin_disable_2fa(int $adminId, int $userId): void
+{
+    user_disable_2fa($userId);
+    admin_log($adminId, 'user.2fa_reset', sprintf('Turned off two-factor authentication of member #%d', $userId));
+    notify_member($userId, 'Two-factor authentication was reset', 'Two-factor authentication was reset by support', [
+        'An administrator turned off two-factor authentication on your ' . site_name() . ' account. You can set it up again from your account page.',
+        'If you did not ask for this, contact support immediately.',
+    ], security: true);
+}
+
+function admin_set_email(int $adminId, int $userId, string $email): void
+{
+    $email = mb_strtolower(trim($email));
+    validate_email($email);
+    if (val('SELECT id FROM users WHERE email = ? AND id <> ?', [$email, $userId]) !== null) {
+        throw new AppError('Another account already uses this email.');
+    }
+    $old = (string) val('SELECT email FROM users WHERE id = ?', [$userId]);
+    q('UPDATE users SET email = ? WHERE id = ?', [$email, $userId]);
+    admin_log($adminId, 'user.email', sprintf('Changed the email of member #%d from %s to %s', $userId, $old, $email));
 }
 
 /** Validate & store the settings form. */
@@ -161,8 +189,11 @@ function admin_save_settings(int $adminId, array $input): void
         'min_campaign_credits'     => [1, 100000],
         'max_pending_deposits'     => [1, 100],
         'max_pending_withdrawals'  => [1, 100],
+        'max_registrations_per_ip' => [0, 1000],
+        'smtp_port'                => [1, 65535],
     ];
-    $bools = ['registration_open', 'maintenance_mode', 'allow_cash_purchase', 'ad_required', 'campaign_approval'];
+    $bools = ['registration_open', 'maintenance_mode', 'allow_cash_purchase', 'ad_required', 'campaign_approval',
+        'admin_2fa_required', 'notify_members', 'notify_admins'];
 
     $values = [];
     $siteName = trim((string) ($input['site_name'] ?? ''));
@@ -215,12 +246,47 @@ function admin_save_settings(int $adminId, array $input): void
 
     $values['disclaimer'] = mb_substr(trim((string) ($input['disclaimer'] ?? '')), 0, 2000);
     $values['terms_text'] = mb_substr(trim((string) ($input['terms_text'] ?? '')), 0, 20000);
+    $values['privacy_text'] = mb_substr(trim((string) ($input['privacy_text'] ?? '')), 0, 20000);
+
+    // Email
+    $transport = (string) ($input['mail_transport'] ?? 'off');
+    if (!in_array($transport, ['off', 'smtp', 'mail', 'log'], true)) {
+        throw new AppError('Choose how emails are sent.');
+    }
+    $values['mail_transport'] = $transport;
+    $from = trim((string) ($input['mail_from'] ?? ''));
+    if ($from !== '' && !filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        throw new AppError('The sender address is not a valid email.');
+    }
+    if ($transport !== 'off' && $from === '') {
+        throw new AppError('Enter the sender address emails are sent from.');
+    }
+    $values['mail_from'] = $from;
+    $values['mail_from_name'] = mb_substr(mail_header_value((string) ($input['mail_from_name'] ?? '')), 0, 60);
+    $smtpHost = trim((string) ($input['smtp_host'] ?? ''));
+    if ($smtpHost !== '' && !preg_match('/^[A-Za-z0-9.-]{1,253}$/', $smtpHost)) {
+        throw new AppError('The SMTP host must be a host name such as smtp.example.com.');
+    }
+    if ($transport === 'smtp' && $smtpHost === '') {
+        throw new AppError('Enter the SMTP host.');
+    }
+    $values['smtp_host'] = $smtpHost;
+    $encryption = (string) ($input['smtp_encryption'] ?? 'tls');
+    $values['smtp_encryption'] = in_array($encryption, ['tls', 'ssl', 'none'], true) ? $encryption : 'tls';
+    $values['smtp_username'] = mb_substr(trim((string) ($input['smtp_username'] ?? '')), 0, 190);
+    // Write-only: an empty field keeps the saved password.
+    $smtpPassword = (string) ($input['smtp_password'] ?? '');
+    if (!empty($input['smtp_password_clear'])) {
+        $values['smtp_password'] = '';
+    } elseif ($smtpPassword !== '') {
+        $values['smtp_password'] = seal_secret($smtpPassword);
+    }
 
     $before = settings_all();
     settings_save($values);
     $changed = [];
     foreach ($values as $key => $value) {
-        if ((string) ($before[$key] ?? '') !== $value && !in_array($key, ['disclaimer', 'terms_text'], true)) {
+        if ((string) ($before[$key] ?? '') !== $value && !in_array($key, ['disclaimer', 'terms_text', 'privacy_text'], true)) {
             $changed[] = $key;
         }
     }

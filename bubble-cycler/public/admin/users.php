@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . '/../../app/bootstrap.php';
 
-require_admin();
+$admin = require_admin();
 $filters = ['all' => 'All', 'active' => 'Active', 'banned' => 'Banned', 'admin' => 'Admins'];
 $filter = array_key_exists(query('filter'), $filters) ? query('filter') : 'all';
 $sorts = [
@@ -22,10 +22,34 @@ if ($filter === 'active' || $filter === 'banned') {
 }
 $search = query('q');
 if ($search !== '') {
-    $where[] = '(u.username LIKE ? OR u.email LIKE ? OR u.last_ip = ?)';
-    array_push($params, '%' . $search . '%', '%' . $search . '%', $search);
+    $where[] = '(u.username LIKE ? OR u.email LIKE ? OR u.last_ip = ? OR u.register_ip = ?)';
+    array_push($params, '%' . $search . '%', '%' . $search . '%', $search, $search);
 }
 $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+if (query('export') === 'csv') {
+    admin_log((int) $admin['id'], 'export.members', 'Exported members (' . $filters[$filter] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
+    csv_export('members', "SELECT u.*, r.username AS referrer_name FROM users u LEFT JOIN users r ON r.id = u.referrer_id $sqlWhere ORDER BY u.id", $params, [
+        'ID'                 => static fn (array $u) => $u['id'],
+        'Username'           => static fn (array $u) => $u['username'],
+        'Email'              => static fn (array $u) => $u['email'],
+        'Role'               => static fn (array $u) => $u['role'],
+        'Status'             => static fn (array $u) => $u['status'],
+        'Referrer'           => static fn (array $u) => $u['referrer_name'],
+        'Purchase balance'   => static fn (array $u) => csv_money($u['purchase_balance']),
+        'Cash balance'       => static fn (array $u) => csv_money($u['cash_balance']),
+        'Ad credits'         => static fn (array $u) => (int) $u['ad_credits'],
+        'Deposited'          => static fn (array $u) => csv_money($u['total_deposited']),
+        'Earned'             => static fn (array $u) => csv_money($u['total_earned']),
+        'Withdrawn'          => static fn (array $u) => csv_money($u['total_withdrawn']),
+        'Referral earnings'  => static fn (array $u) => csv_money($u['total_ref_earned']),
+        'Bubbles bought'     => static fn (array $u) => (int) $u['bubbles_bought'],
+        'Two-factor'         => static fn (array $u) => user_has_2fa($u) ? 'on' : 'off',
+        'Registered (UTC)'   => static fn (array $u) => $u['created_at'],
+        'Register IP'        => static fn (array $u) => $u['register_ip'],
+        'Last sign-in (UTC)' => static fn (array $u) => $u['last_login_at'],
+        'Last IP'            => static fn (array $u) => $u['last_ip'],
+    ]);
+}
 $pager = paginate((int) val("SELECT COUNT(*) FROM users u $sqlWhere", $params), 25);
 $users = rows(
     "SELECT u.*, r.username AS referrer_name,

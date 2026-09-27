@@ -77,6 +77,58 @@ function wallet_move(
     return $balance;
 }
 
+/**
+ * Credit many ledger lines in one go (bubble payouts). Same bookkeeping as
+ * wallet_move(): member rows are locked (in id order), every line gets its
+ * own ledger row with the running balance. Must run inside tx().
+ *
+ * @param list<array{0:int, 1:int, 2:string, 3:?string, 4:?int}> $lines [member id, amount > 0, description, ref type, ref id]
+ */
+function wallet_credit_many(string $wallet, string $type, array $lines): void
+{
+    if ($lines === []) {
+        return;
+    }
+    if (!db()->inTransaction()) {
+        throw new LogicException('wallet_credit_many() must run inside tx().');
+    }
+    $column = WALLETS[$wallet] ?? throw new InvalidArgumentException('Unknown wallet: ' . $wallet);
+
+    $ids = array_values(array_unique(array_column($lines, 0)));
+    sort($ids);
+    $balances = [];
+    foreach (array_chunk($ids, 500) as $chunk) {
+        $marks = implode(', ', array_fill(0, count($chunk), '?'));
+        foreach (rows("SELECT id, `$column` AS balance FROM users WHERE id IN ($marks) ORDER BY id FOR UPDATE", $chunk) as $member) {
+            $balances[(int) $member['id']] = (int) $member['balance'];
+        }
+    }
+    $before = $balances;
+
+    $now = now();
+    $values = [];
+    foreach ($lines as [$userId, $amount, $description, $refType, $refId]) {
+        if (!isset($balances[$userId])) {
+            throw new AppError('Member not found.');
+        }
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('wallet_credit_many() only takes positive amounts.');
+        }
+        $balances[$userId] += $amount;
+        array_push($values, $userId, $wallet, $type, $amount, $balances[$userId], mb_substr($description, 0, 255), $refType, $refId, $now);
+    }
+
+    foreach ($balances as $userId => $balance) {
+        if ($balance !== $before[$userId]) {
+            q("UPDATE users SET `$column` = ? WHERE id = ?", [$balance, $userId]);
+        }
+    }
+    foreach (array_chunk($values, 9 * 400) as $chunk) {
+        q('INSERT INTO transactions (user_id, wallet, type, amount, balance_after, description, ref_type, ref_id, created_at) VALUES '
+            . implode(', ', array_fill(0, intdiv(count($chunk), 9), '(?, ?, ?, ?, ?, ?, ?, ?, ?)')), $chunk);
+    }
+}
+
 /** Ledger amount for display, money or credits depending on the wallet. */
 function ledger_amount(array $tx): string
 {

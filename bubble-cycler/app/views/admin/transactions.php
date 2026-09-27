@@ -22,6 +22,7 @@
     </label>
     <div class="search"><?= icon('search') ?><input class="input input--sm" type="search" name="user" value="<?= e($userFilter) ?>" placeholder="Exact username"></div>
     <?php if ($type !== '' || $wallet !== '' || $userFilter !== ''): ?><a class="btn btn--ghost btn--sm" href="<?= e(url('admin/transactions.php')) ?>">Reset</a><?php endif; ?>
+    <?= csv_link('admin/transactions.php', ['type' => $type !== '' ? $type : null, 'wallet' => $wallet !== '' ? $wallet : null, 'user' => $userFilter !== '' ? $userFilter : null]) ?>
 </form>
 
 <section class="card card--flush">

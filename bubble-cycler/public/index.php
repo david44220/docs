@@ -11,5 +11,5 @@ render('public/home', [
     'head'        => queue_head($pool),
     'next'        => queue_next($pool, 7),
     'members'     => (int) val('SELECT COUNT(*) FROM users'),
-    'expirations' => recent_expirations(5),
+    'expirations' => recent_expirations(5, $pool),
 ], 'public');

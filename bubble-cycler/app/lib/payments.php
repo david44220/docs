@@ -153,46 +153,74 @@ function deposit_create(int $userId, int $methodId, string $amountText, string $
         throw new AppError('Sender details are too long.');
     }
 
-    $pendingLimit = max(1, setting_int('max_pending_deposits'));
-    $pending = (int) val("SELECT COUNT(*) FROM deposits WHERE user_id = ? AND status = 'pending'", [$userId]);
-    if ($pending >= $pendingLimit) {
-        throw new AppError(sprintf('You already have %s waiting for review. Please wait until they are processed.', plural($pending, 'pending deposit')));
-    }
-    $duplicate = val(
-        "SELECT id FROM deposits WHERE method_id = ? AND reference = ? AND status IN ('pending','approved') LIMIT 1",
-        [$methodId, $reference]
-    );
-    if ($duplicate !== null) {
-        throw new AppError('This transaction reference has already been submitted.');
-    }
-
     $proof = store_proof_upload($file);
     if ($proof === null && (int) $method['require_proof'] === 1) {
         throw new AppError('Please attach a screenshot of your payment.');
     }
 
-    return insert('deposits', [
-        'user_id'       => $userId,
-        'method_id'     => $methodId,
-        'method_name'   => $method['name'],
-        'amount'        => $amount,
-        'fee'           => $fee,
-        'credit_amount' => $amount - $fee,
-        'reference'     => $reference,
-        'sender'        => $sender,
-        'proof_file'    => $proof,
-        'status'        => 'pending',
-        'created_at'    => now(),
-    ]);
+    try {
+        $id = tx(function () use ($userId, $methodId, $method, $amount, $fee, $reference, $sender, $proof): int {
+            // One submission at a time per member keeps the pending limit exact.
+            row('SELECT id FROM users WHERE id = ? FOR UPDATE', [$userId]);
+            $pendingLimit = max(1, setting_int('max_pending_deposits'));
+            $pending = (int) val("SELECT COUNT(*) FROM deposits WHERE user_id = ? AND status = 'pending'", [$userId]);
+            if ($pending >= $pendingLimit) {
+                throw new AppError(sprintf('You already have %s waiting for review. Please wait until they are processed.', plural($pending, 'pending deposit')));
+            }
+            if (deposit_reference_taken($methodId, $reference)) {
+                throw new AppError('This transaction reference has already been submitted.');
+            }
+            return insert('deposits', [
+                'user_id'       => $userId,
+                'method_id'     => $methodId,
+                'method_name'   => $method['name'],
+                'amount'        => $amount,
+                'fee'           => $fee,
+                'credit_amount' => $amount - $fee,
+                'reference'     => $reference,
+                'sender'        => $sender,
+                'proof_file'    => $proof,
+                'status'        => 'pending',
+                'created_at'    => now(),
+            ]);
+        });
+    } catch (Throwable $e) {
+        if ($proof !== null) {
+            @unlink(proof_dir() . '/' . $proof);
+        }
+        throw $e;
+    }
+
+    notify_admins(sprintf('Deposit #%d to review', $id), 'A deposit is waiting for review', [
+        sprintf('%s declared a deposit of %s via %s (reference %s).', (string) val('SELECT username FROM users WHERE id = ?', [$userId]), money($amount), $method['name'], $reference),
+        'Check that the payment arrived before approving it.',
+    ], 'admin/deposits.php?review=' . $id, 'Review deposit');
+    return $id;
+}
+
+/** A reference already used by a pending or approved deposit of this method (optionally ignoring one deposit). */
+function deposit_reference_taken(int $methodId, string $reference, int $exceptId = 0): bool
+{
+    return val(
+        "SELECT id FROM deposits WHERE method_id = ? AND reference = ? AND status IN ('pending','approved') AND id <> ? LIMIT 1",
+        [$methodId, $reference, $exceptId]
+    ) !== null;
 }
 
 /** Approve a pending deposit; $credit overrides the amount credited (e.g. partial payment received). */
 function deposit_approve(int $adminId, int $depositId, ?int $credit, string $note = ''): void
 {
-    tx(function () use ($adminId, $depositId, $credit, $note): void {
+    $deposit = tx(function () use ($adminId, $depositId, $credit, $note): array {
         $deposit = row('SELECT * FROM deposits WHERE id = ? FOR UPDATE', [$depositId]);
         if ($deposit === null || $deposit['status'] !== 'pending') {
             throw new AppError('This deposit is no longer pending.');
+        }
+        $twin = $deposit['method_id'] === null ? null : val(
+            "SELECT id FROM deposits WHERE method_id = ? AND reference = ? AND status = 'approved' AND id <> ? LIMIT 1",
+            [(int) $deposit['method_id'], $deposit['reference'], $depositId]
+        );
+        if ($twin !== null) {
+            throw new AppError(sprintf('Deposit #%d with the same reference was already approved. Reject this one.', (int) $twin));
         }
         $credit ??= (int) $deposit['credit_amount'];
         if ($credit <= 0) {
@@ -206,12 +234,17 @@ function deposit_approve(int $adminId, int $depositId, ?int $credit, string $not
             [$credit, $note !== '' ? mb_substr($note, 0, 255) : null, $adminId, now(), $depositId]
         );
         admin_log($adminId, 'deposit.approve', sprintf('Approved deposit #%d, credited %s', $depositId, money($credit)));
+        return ['user_id' => $userId, 'credit' => $credit, 'method' => $deposit['method_name'], 'note' => $note];
     });
+    notify_member($deposit['user_id'], sprintf('Deposit #%d approved', $depositId), 'Your deposit was approved', array_filter([
+        sprintf('%s from your deposit via %s was added to your purchase balance.', money($deposit['credit']), $deposit['method']),
+        $deposit['note'] !== '' ? 'Note from the team: ' . $deposit['note'] : '',
+    ]), 'buy.php', 'Buy bubbles');
 }
 
 function deposit_reject(int $adminId, int $depositId, string $note): void
 {
-    tx(function () use ($adminId, $depositId, $note): void {
+    $deposit = tx(function () use ($adminId, $depositId, $note): array {
         $deposit = row('SELECT * FROM deposits WHERE id = ? FOR UPDATE', [$depositId]);
         if ($deposit === null || $deposit['status'] !== 'pending') {
             throw new AppError('This deposit is no longer pending.');
@@ -221,7 +254,13 @@ function deposit_reject(int $adminId, int $depositId, string $note): void
             [$note !== '' ? mb_substr($note, 0, 255) : null, $adminId, now(), $depositId]
         );
         admin_log($adminId, 'deposit.reject', sprintf('Rejected deposit #%d%s', $depositId, $note !== '' ? ' — ' . $note : ''));
+        return $deposit;
     });
+    notify_member((int) $deposit['user_id'], sprintf('Deposit #%d was not approved', $depositId), 'Your deposit was not approved', array_filter([
+        sprintf('We could not confirm your deposit of %s via %s (reference %s).', money($deposit['amount']), $deposit['method_name'], $deposit['reference']),
+        $note !== '' ? 'Reason: ' . $note : '',
+        'If you think this is a mistake, reply to support with your payment details.',
+    ]), 'deposit.php', 'View my deposits');
 }
 
 /** Admin adds money for a member directly (cash received outside the site, promotions…). */
@@ -282,7 +321,7 @@ function withdrawal_create(int $userId, int $methodId, string $amountText, strin
         throw new AppError(sprintf('Enter your %s.', mb_strtolower($method['account_label'] ?: 'account details')));
     }
 
-    return tx(function () use ($userId, $method, $amount, $fee, $account): int {
+    $id = tx(function () use ($userId, $method, $amount, $fee, $account): int {
         row('SELECT id FROM users WHERE id = ? FOR UPDATE', [$userId]);
         $limit = max(1, setting_int('max_pending_withdrawals'));
         $pending = (int) val("SELECT COUNT(*) FROM withdrawals WHERE user_id = ? AND status = 'pending'", [$userId]);
@@ -303,17 +342,21 @@ function withdrawal_create(int $userId, int $methodId, string $amountText, strin
         wallet_move($userId, 'cash', -$amount, 'withdrawal', sprintf('Withdrawal #%d via %s requested', $id, $method['name']), 'withdrawal', $id);
         return $id;
     });
+    notify_admins(sprintf('Withdrawal #%d to pay', $id), 'A withdrawal is waiting', [
+        sprintf('%s asked for %s via %s (%s after fees).', (string) val('SELECT username FROM users WHERE id = ?', [$userId]), money($amount), $method['name'], money($amount - $fee)),
+    ], 'admin/withdrawals.php?review=' . $id, 'Review withdrawal');
+    return $id;
 }
 
 function withdrawal_mark_paid(int $adminId, int $withdrawalId, string $txid, string $note = ''): void
 {
-    tx(function () use ($adminId, $withdrawalId, $txid, $note): void {
+    $withdrawal = tx(function () use ($adminId, $withdrawalId, $txid, $note): array {
         $withdrawal = row('SELECT user_id FROM withdrawals WHERE id = ?', [$withdrawalId]);
         if ($withdrawal === null) {
             throw new AppError('Withdrawal not found.');
         }
         row('SELECT id FROM users WHERE id = ? FOR UPDATE', [(int) $withdrawal['user_id']]); // member row first
-        $withdrawal = row('SELECT * FROM withdrawals WHERE id = ? FOR UPDATE', [$withdrawalId]);
+        $withdrawal = row_required('SELECT * FROM withdrawals WHERE id = ? FOR UPDATE', [$withdrawalId]);
         if ($withdrawal['status'] !== 'pending') {
             throw new AppError('This withdrawal is no longer pending.');
         }
@@ -323,20 +366,26 @@ function withdrawal_mark_paid(int $adminId, int $withdrawalId, string $txid, str
         );
         q('UPDATE users SET total_withdrawn = total_withdrawn + ? WHERE id = ?', [(int) $withdrawal['amount'], (int) $withdrawal['user_id']]);
         admin_log($adminId, 'withdrawal.paid', sprintf('Paid withdrawal #%d (%s)', $withdrawalId, money($withdrawal['payout_amount'])));
+        return $withdrawal;
     });
+    notify_member((int) $withdrawal['user_id'], sprintf('Withdrawal #%d sent', $withdrawalId), 'Your withdrawal was sent', array_filter([
+        sprintf('We sent %s via %s to %s.', money($withdrawal['payout_amount']), $withdrawal['method_name'], str_limit($withdrawal['account'], 80)),
+        $txid !== '' ? 'Transaction ID: ' . $txid : '',
+        $note !== '' ? 'Note from the team: ' . $note : '',
+    ]), 'withdraw.php', 'View my withdrawals');
 }
 
 /** Reject (admin) or cancel (member) a pending withdrawal and refund it. */
 function withdrawal_refund(int $withdrawalId, string $status, ?int $adminId, string $note = '', ?int $ownerId = null): void
 {
-    tx(function () use ($withdrawalId, $status, $adminId, $note, $ownerId): void {
+    $withdrawal = tx(function () use ($withdrawalId, $status, $adminId, $note, $ownerId): array {
         $withdrawal = row('SELECT * FROM withdrawals WHERE id = ?', [$withdrawalId]);
         if ($withdrawal === null || ($ownerId !== null && (int) $withdrawal['user_id'] !== $ownerId)) {
             throw new AppError('Withdrawal not found.');
         }
         $userId = (int) $withdrawal['user_id'];
         row('SELECT id FROM users WHERE id = ? FOR UPDATE', [$userId]);
-        $withdrawal = row('SELECT * FROM withdrawals WHERE id = ? FOR UPDATE', [$withdrawalId]);
+        $withdrawal = row_required('SELECT * FROM withdrawals WHERE id = ? FOR UPDATE', [$withdrawalId]);
         if ($withdrawal['status'] !== 'pending') {
             throw new AppError('This withdrawal is no longer pending.');
         }
@@ -349,5 +398,12 @@ function withdrawal_refund(int $withdrawalId, string $status, ?int $adminId, str
         if ($adminId !== null) {
             admin_log($adminId, 'withdrawal.reject', sprintf('Rejected withdrawal #%d%s', $withdrawalId, $note !== '' ? ' — ' . $note : ''));
         }
+        return $withdrawal;
     });
+    if ($status === 'rejected') {
+        notify_member((int) $withdrawal['user_id'], sprintf('Withdrawal #%d was not sent', $withdrawalId), 'Your withdrawal was declined', array_filter([
+            sprintf('Your withdrawal of %s via %s was declined and the full amount is back in your cash balance.', money($withdrawal['amount']), $withdrawal['method_name']),
+            $note !== '' ? 'Reason: ' . $note : '',
+        ]), 'withdraw.php', 'View my withdrawals');
+    }
 }

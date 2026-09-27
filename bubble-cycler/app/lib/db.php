@@ -27,7 +27,8 @@ function db_connect(array $c): PDO
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
-    $pdo->exec("SET time_zone = '+00:00'");
+    // UTC dates and strict SQL on every host, whatever the server defaults are.
+    $pdo->exec("SET time_zone = '+00:00', sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
     return $pdo;
 }
 
@@ -61,6 +62,16 @@ function row(string $sql, array $params = []): ?array
 function rows(string $sql, array $params = []): array
 {
     return q($sql, $params)->fetchAll();
+}
+
+/** Like row(), for rows that must exist (singletons, aggregates, rows just locked). */
+function row_required(string $sql, array $params = []): array
+{
+    $result = row($sql, $params);
+    if ($result === null) {
+        throw new RuntimeException('Expected a database row but found none: ' . preg_replace('/\s+/', ' ', $sql));
+    }
+    return $result;
 }
 
 function val(string $sql, array $params = []): mixed
@@ -101,9 +112,7 @@ function tx(callable $fn, int $attempts = 3): mixed
             $pdo->commit();
             return $result;
         } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
+            tx_rollback($pdo);
             $code = $e instanceof PDOException ? (int) ($e->errorInfo[1] ?? 0) : 0;
             if (in_array($code, [1213, 1205], true) && $try < $attempts) {
                 usleep(random_int(20000, 150000));
@@ -111,6 +120,13 @@ function tx(callable $fn, int $attempts = 3): mixed
             }
             throw $e;
         }
+    }
+}
+
+function tx_rollback(PDO $pdo): void
+{
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
 }
 

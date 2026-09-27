@@ -12,9 +12,9 @@ $form = null;
 if (is_post()) {
     $action = post('action');
     $id = (int) post('id');
+    $input = [];
     try {
         if ($action === 'save') {
-            $input = [];
             foreach ($fields as $field) {
                 $input[$field] = post($field);
             }

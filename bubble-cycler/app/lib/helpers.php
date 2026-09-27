@@ -41,9 +41,10 @@ function config(?string $key = null, mixed $default = null): mixed
     return $value;
 }
 
+/** Installed = a configuration exists and the installer has finished (lock file, or 'installed' => true). */
 function is_installed(): bool
 {
-    return is_file(config_file()) && is_file(STORAGE_DIR . '/installed.lock');
+    return is_file(config_file()) && (is_file(STORAGE_DIR . '/installed.lock') || config('installed') === true);
 }
 
 /* -------------------------------------------------------------------------
@@ -142,10 +143,15 @@ function redirect(string $to, int $status = 302): never
     exit;
 }
 
-/** Only allow redirects to paths on this site ("next" parameters). */
+/**
+ * Only allow redirects to paths on this site ("next" parameters). Browsers
+ * drop tabs and newlines from URLs, so "/<TAB>/evil.com" would become
+ * "//evil.com": any whitespace or control character is refused.
+ */
 function safe_next(string $next, string $fallback): string
 {
-    if ($next === '' || !str_starts_with($next, '/') || str_starts_with($next, '//') || str_contains($next, '\\')) {
+    if ($next === '' || mb_strlen($next) > 500 || !str_starts_with($next, '/') || str_starts_with($next, '//')
+        || str_contains($next, '\\') || preg_match('/[\x00-\x20\x7F]/', $next)) {
         return $fallback;
     }
     return $next;
@@ -181,8 +187,11 @@ function log_error(Throwable $e): void
         $e->getLine(),
         $e->getTraceAsString()
     );
-    $dir = STORAGE_DIR . '/logs';
-    if (!@error_log($line, 3, $dir . '/app.log')) {
+    $file = STORAGE_DIR . '/logs/app.log';
+    if (@filesize($file) > 5 * 1024 * 1024) {
+        @rename($file, $file . '.1'); // keep one rotated file
+    }
+    if (!@error_log($line, 3, $file)) {
         error_log($line);
     }
 }
@@ -219,6 +228,15 @@ function start_session(): void
     }
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
+    ini_set('session.gc_maxlifetime', (string) session_idle_limit());
+    // Keep sessions in our own folder so the lifetime above is honoured even on
+    // shared hosts whose system session cleaner uses a shorter one.
+    $dir = STORAGE_DIR . '/sessions';
+    if ((is_dir($dir) || @mkdir($dir, 0700, true)) && is_writable($dir)) {
+        session_save_path($dir);
+        ini_set('session.gc_probability', '1');
+        ini_set('session.gc_divisor', '100');
+    }
     session_name('bubble_sid');
     session_set_cookie_params([
         'lifetime' => 0,
@@ -230,15 +248,26 @@ function start_session(): void
     session_start();
 }
 
+/** Signed-in sessions end after this many seconds without activity (config 'session_idle', default 2 h). */
+function session_idle_limit(): int
+{
+    return max(900, (int) config('session_idle', 7200));
+}
+
 function send_security_headers(): void
 {
     if (headers_sent()) {
         return;
     }
+    header_remove('X-Powered-By');
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    header('Cross-Origin-Opener-Policy: same-origin');
+    if (is_https() && config('hsts', true)) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
     if (config('csp', true)) {
         header("Content-Security-Policy: default-src 'self'; img-src 'self' https: data:; "
             . "style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'self'; "
@@ -264,6 +293,32 @@ function csrf_valid(): bool
     $sent = $_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     $known = $_SESSION['_csrf'] ?? '';
     return is_string($sent) && is_string($known) && $sent !== '' && $known !== '' && hash_equals($known, $sent);
+}
+
+/**
+ * One-time tokens for forms that must never be processed twice (purchases):
+ * a double click, a resubmitted page or a replayed request is refused.
+ * The last few tokens stay valid so several open tabs keep working.
+ */
+function form_nonce(string $form): string
+{
+    $nonce = bin2hex(random_bytes(16));
+    $nonces = $_SESSION['_nonces'][$form] ?? [];
+    $nonces[] = $nonce;
+    $_SESSION['_nonces'][$form] = array_slice(is_array($nonces) ? $nonces : [$nonce], -5);
+    return $nonce;
+}
+
+function form_nonce_consume(string $form, string $nonce): bool
+{
+    $nonces = $_SESSION['_nonces'][$form] ?? [];
+    $index = $nonce !== '' && is_array($nonces) ? array_search($nonce, $nonces, true) : false;
+    if ($index === false) {
+        return false;
+    }
+    unset($nonces[$index]);
+    $_SESSION['_nonces'][$form] = array_values($nonces);
+    return true;
 }
 
 function flash(string $type, string $message): void
@@ -499,19 +554,32 @@ function enforce_maintenance(): void
     exit;
 }
 
-/** Cheap periodic clean-up, run on ~1 % of requests. */
+/** Run the clean-up on about 1 request in 100 (or from cron: php bin/admin.php housekeeping). */
 function maybe_housekeeping(): void
 {
     if (random_int(1, 100) !== 1) {
         return;
     }
     try {
-        q('DELETE FROM login_attempts WHERE attempted_at < ?', [gmdate('Y-m-d H:i:s', time() - 86400)]);
-        q(
-            'DELETE FROM ad_views WHERE completed_at IS NULL AND used_at IS NULL AND started_at < ?',
-            [gmdate('Y-m-d H:i:s', time() - 3 * 86400)]
-        );
+        housekeeping();
     } catch (Throwable $e) {
         log_error($e);
     }
+}
+
+/** Delete data that is no longer needed. Returns the number of rows removed per table. */
+function housekeeping(): array
+{
+    $day = gmdate('Y-m-d H:i:s', time() - 86400);
+    return [
+        'login_attempts'  => q('DELETE FROM login_attempts WHERE attempted_at < ?', [$day])->rowCount(),
+        'rate_limits'     => q('DELETE FROM rate_limits WHERE created_at < ?', [$day])->rowCount(),
+        'password_resets' => q('DELETE FROM password_resets WHERE expires_at < ?', [$day])->rowCount(),
+        // Campaign statistics live on the campaigns themselves; old views are only needed briefly.
+        'ad_views'        => q('DELETE FROM ad_views WHERE started_at < ?', [gmdate('Y-m-d H:i:s', time() - 30 * 86400)])->rowCount()
+            + q(
+                'DELETE FROM ad_views WHERE completed_at IS NULL AND used_at IS NULL AND started_at < ?',
+                [gmdate('Y-m-d H:i:s', time() - 3 * 86400)]
+            )->rowCount(),
+    ];
 }

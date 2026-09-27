@@ -15,6 +15,10 @@ purchase**. Deposits and withdrawals use **manual payment methods that you manag
 |---|---|
 | ![Admin](docs/screenshots/admin.jpg) | ![Methods](docs/screenshots/methods.jpg) |
 
+| Two-factor authentication | Member file in the admin panel |
+|---|---|
+| ![Two-factor setup](docs/screenshots/two-factor.jpg) | ![Admin member page](docs/screenshots/admin-member.jpg) |
+
 ---
 
 ## Features
@@ -27,7 +31,9 @@ purchase**. Deposits and withdrawals use **manual payment methods that you manag
   clicks and CTR. Campaigns can be paused, topped up, edited or deleted (unused credits are refunded).
 - Deposits through the manual methods you define (with an optional payment screenshot), withdrawals from the cash
   balance, a full ledger, referral link with commissions, and account security settings.
-- Celebration when bubbles expire, toasts, keyboard-accessible UI, works on phones.
+- **Two-factor authentication** (any authenticator app, QR code, 10 one-time recovery codes), **password reset by
+  email**, and email notices when a deposit is approved or a withdrawal is sent.
+- Celebration when bubbles expire, toasts, keyboard-accessible UI, works on phones, installable on the home screen.
 
 **Admin panel**
 - Overview: members, pool, platform revenue, pending work, a 14-day chart of bubbles bought/expired, a money
@@ -36,11 +42,14 @@ purchase**. Deposits and withdrawals use **manual payment methods that you manag
 - **Withdrawals**: mark as paid with a payment reference, or reject (the amount is refunded).
 - **Payment methods**: create deposit and withdrawal methods (crypto wallet, bank transfer, mobile money, PayPal…)
   with your payment details, instructions, min/max, fixed and percentage fees, and a "screenshot required" switch.
-- **Members**: search, manual deposit, credit/debit any wallet, ban, admin rights, password reset.
+- **Members**: search by name, email or IP, manual deposit, credit/debit any wallet, ban, admin rights, password and
+  email changes, two-factor reset, and a warning when a member signed up from the same IP as their referrer.
 - **Pool & queue**: live state, full queue and history, and pool top-ups (promotions) that pay the queue in order.
 - **Ad campaigns**: moderation (approve / reject / pause / delete) and free, unlimited house ads.
 - **Settings**: every number of the economy, ad timer and credits, limits, registrations, maintenance mode,
-  timezone, currency symbol, risk disclaimer and terms.
+  timezone, currency symbol, **email (SMTP)** with a test button, **security** (two-factor required for admins,
+  sign-ups per IP), risk disclaimer, terms and privacy policy.
+- **CSV exports** of deposits, withdrawals, the ledger and members (safe to open in Excel).
 - **Audit log** of every admin action.
 
 **Design** — dark "glass" interface with iridescent accents, CSS-only liquid-filled bubbles, self-hosted Inter and
@@ -71,9 +80,10 @@ Carol buys 3  → pool $2.40   #2 expires → Bob +$1.60, pool $0.80 fills #3 to
 Each dollar splits into $0.80 pool / $0.05 referrer / $0.15 platform (or $0.20 platform when the buyer has no
 referrer). Changing the economics later only affects new bubbles: each bubble keeps the target it was bought with.
 
-Money is stored as integers (1.00 = 1 000 000), every balance change goes through a single ledger function inside a
-database transaction, and every purchase locks the pool row, so concurrent buyers can never double-spend or break the
-queue order. The test suite checks that **every cent is accounted for** after each scenario.
+Money is stored as integers (1.00 = 1 000 000), every balance change goes through the ledger inside a database
+transaction, and every purchase locks the pool row, so concurrent buyers can never double-spend or break the queue
+order. Bubbles are paid in batches: in the load test a pool top-up that expired 20 000 bubbles took about 3 seconds. The test suites
+check that **every cent is accounted for** after each scenario.
 
 > **Be honest with your members.** Bubbles are paid only from new purchases (and any amount you add to the pool).
 > If purchases slow down, bubbles wait longer and some may never expire. The default disclaimer, FAQ and terms say
@@ -113,9 +123,10 @@ All payment amounts are in whole cents.
 
 ## Requirements
 
-- PHP **8.1+** with `pdo_mysql`, `mbstring` and `fileinfo`
+- PHP **8.1+** with `pdo_mysql`, `mbstring`, `fileinfo`, `openssl` and `sodium` (all standard)
 - MySQL **5.7+ / 8.x** or MariaDB **10.4+**
-- Apache (the `.htaccess` files are included) or nginx
+- Apache (the `.htaccess` files are included) or nginx, with HTTPS
+- An SMTP account for emails (password resets) — any provider: your host, Brevo, Mailgun, Amazon SES, Gmail…
 
 ## Installation
 
@@ -125,8 +136,11 @@ All payment amounts are in whole cents.
    into `public/` and blocks `app/`, `database/`, `storage/` and `tests/`.
 3. Make `app/` (for `config.php`) and `storage/` writable by PHP.
 4. Open `https://your-domain/install.php` and fill in the database, the site name and your admin account.
-   The installer creates the tables, writes `app/config.php` and locks itself with `storage/installed.lock`.
-5. Delete `public/install.php` (optional, it is already locked).
+   The installer creates the tables, writes `app/config.php` (with a fresh encryption key, debug off and HTTPS
+   redirects on when installed over HTTPS) and locks itself with `storage/installed.lock`.
+5. Sign in: the admin panel first asks you to set up **two-factor authentication**. Keep the recovery codes.
+6. Run `php bin/admin.php check` on the server and fix anything it reports.
+7. Delete `public/install.php` (optional, it is already locked).
 
 **nginx**
 
@@ -143,7 +157,10 @@ server {
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
     location ~ /\. { deny all; }
+    location ~* \.(css|js|svg|png|jpg|webp|woff2)$ { expires 1y; add_header Cache-Control "public, immutable"; }
     client_max_body_size 6m;
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml text/csv;
 }
 ```
 
@@ -156,24 +173,72 @@ php -S 127.0.0.1:8080 -t public
 
 ## Going live checklist
 
-1. **Admin → Payment methods**: replace the example details with your real ones and activate at least one deposit
+1. `php bin/admin.php check` reports no problem (HTTPS, `app_key`, `base_url`, debug off, writable folders, clock).
+2. **Admin → Settings → Email**: enter your SMTP details and press **Save & send a test email to me**. Without email,
+   members cannot reset forgotten passwords.
+3. **Admin → Payment methods**: replace the example details with your real ones and activate at least one deposit
    and one withdrawal method (the examples are created inactive on purpose).
-2. **Admin → Settings**: review the economics, the ad timer, limits, timezone, support email and the legal texts.
-3. Create or edit the **house ad** (Admin → Ad campaigns → House ads).
-4. Serve the site over HTTPS. Behind Cloudflare or a proxy, set `ip_header` / `trust_proxy` in `app/config.php`.
+4. **Admin → Settings**: review the economics, the ad timer, limits, timezone, support email and the legal texts
+   (terms and privacy policy).
+5. Create or edit the **house ad** (Admin → Ad campaigns → House ads).
+6. Behind Cloudflare or a proxy, set `ip_header` / `trust_proxy` in `app/config.php`.
+7. Add the cron job and the daily backup below, and restore a backup once to be sure it works.
+8. Check the law where you operate (see the warning above) and keep the risk disclaimer visible.
+
+## Operations
+
+**Cron** (optional — clean-up also runs on 1 % of page views):
+
+```cron
+15 * * * * php /var/www/bubble-cycler/bin/admin.php housekeeping > /dev/null
+```
+
+**Command-line tools** (`php bin/admin.php …`, run on the server):
+
+| Command | Does |
+|---|---|
+| `check` | Health check: PHP version and extensions, configuration, database schema, clock, writable folders, email |
+| `stats` | Pool balance, queue length, amounts paid, platform revenue, queue gap |
+| `migrate` | Apply pending database migrations (also automatic on the first request after an update) |
+| `housekeeping` | Delete expired sign-in attempts, rate limits, reset links and old ad views |
+| `unlock <username\|ip>` | Clear failed sign-in attempts (15-minute lock-out) |
+| `reset-2fa <username>` | Turn off two-factor authentication for someone who lost their phone and recovery codes |
+| `set-password <username>` | Set a new random password and print it (`--stdin` to type one) |
+
+**Backups** — everything lives in the database plus `app/config.php` and `storage/uploads/`:
+
+```bash
+mysqldump --single-transaction --routines bubble_db | gzip > /backups/bubble-$(date +%F).sql.gz
+tar czf /backups/bubble-files-$(date +%F).tgz app/config.php storage/uploads
+```
+
+Keep `app/config.php` safe: its `app_key` decrypts the two-factor secrets and the SMTP password. If it is lost, every
+member has to set up two-factor again (`reset-2fa`) and the SMTP password must be re-entered.
+
+**Updating** — replace the files except `app/config.php` and `storage/`, then open any page or run
+`php bin/admin.php migrate`: database changes are applied automatically, once, under a lock.
+
+**Uptime monitoring** — `https://your-domain/health.php` answers `200 {"ok":true}` when PHP and the database work,
+`503` otherwise. It stays up during maintenance mode.
 
 ## Configuration (`app/config.php`)
 
 | Key | Purpose |
 |---|---|
 | `db` | Database host (or socket path), port, name, user, password |
-| `base_url` | Public URL, e.g. `https://example.com`. Leave empty to auto-detect |
-| `debug` | Show error details — never on a live site. Errors are logged to `storage/logs/app.log` |
+| `base_url` | Public URL, e.g. `https://example.com`. **Required for emails** (links in reset emails never trust the request's host) |
+| `app_key` | 32 random bytes (base64) that encrypt two-factor secrets and the SMTP password. Keep it secret, never change it |
+| `debug` | Show error details — never on a live site. Errors are logged to `storage/logs/app.log` (rotated at 5 MB) |
+| `force_https` | Redirect every `http://` request to `https://` |
+| `hsts` | Send `Strict-Transport-Security` on HTTPS responses (default on) |
+| `session_idle` | Sign members out after this many seconds without activity (default 7200) |
 | `csp` | Send the Content-Security-Policy header (turn off only if you add third-party scripts) |
 | `ip_header`, `trust_proxy` | Real client IP / HTTPS detection behind a proxy (e.g. `HTTP_CF_CONNECTING_IP`) |
+| `mail_verify_peer` | Verify the SMTP server's TLS certificate (default on — only turn off for a local relay) |
 
-Set the `BUBBLE_CONFIG` environment variable to load the configuration from another path.
-No cron job is needed: the queue is processed inside each purchase.
+Environment variables: `BUBBLE_CONFIG` loads the configuration from another path, `BUBBLE_STORAGE` moves the
+writable folder (sessions, logs, uploads) elsewhere, e.g. outside the web root. No cron job is required: the queue is
+processed inside each purchase.
 
 ---
 
@@ -189,12 +254,18 @@ bubble-cycler/
 │   │   ├── ads.php            ad gate, rotation, campaigns, house ads
 │   │   ├── payments.php       manual methods, deposits, withdrawals
 │   │   ├── ledger.php         wallets & transactions (the only way balances change)
+│   │   ├── security.php       two-factor codes, recovery codes, rate limits, encrypted secrets
+│   │   ├── mailer.php         SMTP client, email templates, notifications
+│   │   ├── export.php         streamed CSV exports
+│   │   ├── migrations.php     database versions and upgrades
 │   │   ├── auth.php, admin.php, settings.php, money.php, db.php, ui.php, uploads.php, helpers.php
 │   │   └── installer.php
 │   └── views/                 layouts, partials and page templates
+├── bin/admin.php              command-line tools for the operator
 ├── database/schema.sql        tables (run automatically by the installer)
+├── docs/AUDIT.md              production-readiness audit: findings, fixes, test and load results
 ├── public/                    web root: one PHP file per page, admin/, assets/
-├── storage/                   logs and uploaded payment screenshots (private)
+├── storage/                   sessions, logs and uploaded payment screenshots (private)
 └── tests/                     CLI test suites
 ```
 
@@ -203,26 +274,39 @@ Pages follow the same pattern: `public/<page>.php` handles the request and calls
 
 ## Security
 
-- PDO prepared statements everywhere, `password_hash()` passwords, CSRF token on every form, sessions regenerated at
-  sign-in and invalidated on password change, login throttling, strict Content-Security-Policy (no inline scripts),
-  `X-Frame-Options`, escaped output.
-- Every balance change is a locked, transactional ledger write that refuses to go negative; deadlocks are retried.
-- Uploads are validated (type, size, real image), renamed randomly and stored outside the web root.
-- Ad destinations must be `http(s)` URLs, redirects after sign-in stay on the site, members' names are masked in
-  public feeds, and every admin action is written to the audit log.
+- PDO prepared statements everywhere, strict SQL mode on every connection, `password_hash()` passwords (common
+  passwords refused), CSRF token on every form, escaped output, strict Content-Security-Policy (no inline scripts),
+  HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, no `X-Powered-By`.
+- Sessions: stored in the app's own private folder, regenerated at sign-in, signed out after 2 h of inactivity and on
+  every other device when the password changes.
+- Sign-in throttling per IP and per account (with constant-time answers that do not reveal which accounts exist),
+  optional **TOTP two-factor authentication** with replay protection (required for admins by default), rate limits on
+  password resets, two-factor attempts, password checks and sign-ups per IP, and a honeypot against sign-up bots.
+- Password-reset links are single-use, expire after one hour and only their hash is stored; emails tell members about
+  password, email and two-factor changes.
+- Every balance change is a locked, transactional ledger write that refuses to go negative; deadlocks are retried;
+  purchase forms carry a one-time token so a double click or a resubmitted page never buys twice.
+- Uploads are validated (type, size, real image), renamed randomly and stored outside the web root; two-factor
+  secrets and the SMTP password are encrypted with `app_key`.
+- Ad destinations must be `http(s)` URLs, redirects after sign-in stay on the site, CSV exports neutralise spreadsheet
+  formulas, members' names are masked in public feeds, and every admin action is written to the audit log.
+
+See [`docs/AUDIT.md`](docs/AUDIT.md) for the full audit.
 
 ## Tests
 
 The suites run against a throw-away database whose name **must end with `_test`** (all its tables are dropped):
 
 ```bash
-BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret php tests/cycler_test.php
-BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret php tests/stress_test.php
+export BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret
+php tests/cycler_test.php   # 279 checks: FIFO maths, batch payouts, ad gate, payments, campaigns, 2FA, resets, migrations
+php tests/stress_test.php   # 13 parallel processes, then every accounting invariant
+php tests/http_test.php     # 176 checks: every page and form through a real web server (needs the curl extension)
+php tests/smtp_test.php     # SMTP client against a local fake server: STARTTLS, AUTH, dot-stuffing, errors
 ```
 
-`cycler_test.php` covers the FIFO maths, the ad gate, deposits, withdrawals, campaigns, pool top-ups and money
-formatting (150+ checks). `stress_test.php` runs 13 processes buying, withdrawing and approving in parallel, then
-verifies that no money was created or lost and that the queue stayed in strict order.
+After every scenario the suites verify that no money was created or lost, that every ledger line carries the right
+running balance, that the queue stayed in strict order and that each expired bubble was paid exactly once.
 
 ---
 
@@ -233,6 +317,11 @@ bulle expire à 1,60 $, crédits publicitaires offerts à chaque achat, publicit
 avant chaque achat, méthodes de dépôt/retrait manuelles gérées depuis le panneau admin, validation des dépôts avec
 capture d'écran, design premium sombre. Installation : pointer la racine web sur `public/`, créer une base MySQL,
 ouvrir `/install.php`. Pensez à activer vos méthodes de paiement réelles et à vérifier la législation de votre pays.
+
+Prêt pour la production : double authentification (application d'authentification + codes de secours, obligatoire
+pour les admins), réinitialisation du mot de passe par email (SMTP configurable depuis l'admin, bouton d'email de
+test), notifications de paiement, exports CSV, limites anti-abus, migrations automatiques de la base, outil en ligne
+de commande `php bin/admin.php` (`check`, `migrate`, `reset-2fa`…) et rapport d'audit complet dans `docs/AUDIT.md`.
 
 Fonts: [Inter](https://github.com/rsms/inter) and [Sora](https://github.com/sora-xor/sora-font), SIL Open Font License
 (see `public/assets/fonts/`).

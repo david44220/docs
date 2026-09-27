@@ -37,11 +37,28 @@ const SETTING_DEFAULTS = [
     'max_pending_deposits'    => '5',
     'max_pending_withdrawals' => '3',
 
+    // Security
+    'admin_2fa_required'       => '1', // admins must set up two-factor authentication
+    'max_registrations_per_ip' => '5', // per 24 hours, 0 = unlimited
+
+    // Email (smtp_password is stored encrypted)
+    'mail_transport'  => 'off',        // off | smtp | mail | log
+    'mail_from'       => '',
+    'mail_from_name'  => '',
+    'smtp_host'       => '',
+    'smtp_port'       => '587',
+    'smtp_encryption' => 'tls',        // tls (STARTTLS) | ssl | none
+    'smtp_username'   => '',
+    'smtp_password'   => '',
+    'notify_members'  => '1',          // deposit / withdrawal status emails
+    'notify_admins'   => '1',          // new requests, sent to the support email
+
     // Legal
     'disclaimer' => 'Bubble payouts are funded only by new bubble purchases entering the pool. '
         . 'They are not guaranteed, bubbles may wait in the queue for a long time, and you can lose the money you spend. '
         . 'Only use money you can afford to lose.',
-    'terms_text' => '',
+    'terms_text'   => '',
+    'privacy_text' => '',
 ];
 
 function settings_all(bool $refresh = false): array
@@ -83,12 +100,14 @@ function setting_bool(string $key): bool
 
 function settings_save(array $values): void
 {
-    foreach ($values as $key => $value) {
-        q(
-            'INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?',
-            [(string) $key, (string) $value, (string) $value]
-        );
-    }
+    tx(static function () use ($values): void {
+        foreach ($values as $key => $value) {
+            q(
+                'INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?',
+                [(string) $key, (string) $value, (string) $value]
+            );
+        }
+    });
     settings_all(true);
 }
 

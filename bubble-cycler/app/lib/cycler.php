@@ -203,9 +203,18 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
     });
 }
 
+/** Most bubbles paid per round of pool_process() (keeps statements small). */
+const POOL_BATCH = 500;
+
 /**
  * Pay the head of the queue while the pool can afford it. Must run inside a
  * transaction that already holds the pool row lock.
+ *
+ * Bubbles are paid in batches: cum_target grows with the id, so the bubbles
+ * the pool can afford are the ones whose cum_target is within the head's
+ * starting point plus the pool balance. A big pool top-up that expires
+ * thousands of bubbles therefore costs a handful of statements per 500
+ * bubbles instead of a round of queries per bubble.
  *
  * @return list<array{id:int, user_id:int, target:int}>
  */
@@ -216,26 +225,72 @@ function pool_process(): array
     }
     $popped = [];
     while (true) {
-        $pool = row('SELECT balance, bubbles_sold, bubbles_expired FROM pool WHERE id = 1 FOR UPDATE');
-        $headId = (int) $pool['bubbles_expired'] + 1;
-        if ($headId > (int) $pool['bubbles_sold']) {
+        $pool = row_required('SELECT balance, bubbles_sold, bubbles_expired FROM pool WHERE id = 1 FOR UPDATE');
+        $expired = (int) $pool['bubbles_expired'];
+        $waiting = (int) $pool['bubbles_sold'] - $expired;
+        $balance = (int) $pool['balance'];
+        if ($waiting <= 0) {
             break;
         }
-        $head = row('SELECT id, user_id, target FROM bubbles WHERE id = ? FOR UPDATE', [$headId]);
-        if ($head === null || (int) $pool['balance'] < (int) $head['target']) {
+        $head = row('SELECT target, cum_target FROM bubbles WHERE id = ? FOR UPDATE', [$expired + 1]);
+        if ($head === null || $balance < (int) $head['target']) {
             break;
         }
 
-        $target = (int) $head['target'];
-        $owner = (int) $head['user_id'];
+        $window = min($waiting, POOL_BATCH);
+        $reach = (int) $head['cum_target'] - (int) $head['target'] + $balance;
+        $batch = rows(
+            'SELECT id, user_id, target FROM bubbles WHERE id > ? AND id <= ? AND cum_target <= ? ORDER BY id FOR UPDATE',
+            [$expired, $expired + $window, $reach]
+        );
+        $paid = [];
+        $total = 0;
+        foreach ($batch as $bubble) {
+            $target = (int) $bubble['target'];
+            if ((int) $bubble['id'] !== $expired + count($paid) + 1 || $total + $target > $balance) {
+                break;
+            }
+            $total += $target;
+            $paid[] = ['id' => (int) $bubble['id'], 'user_id' => (int) $bubble['user_id'], 'target' => $target];
+        }
+        if ($paid === []) {
+            throw new RuntimeException(sprintf('Queue data is inconsistent at bubble #%d.', $expired + 1));
+        }
+
+        $count = count($paid);
         $now = now();
-        q("UPDATE bubbles SET status = 'expired', earned = ?, expired_at = ? WHERE id = ?", [$target, $now, $headId]);
-        q('UPDATE pool SET balance = balance - ?, total_out = total_out + ?, bubbles_expired = bubbles_expired + 1,
-                updated_at = ? WHERE id = 1', [$target, $target, $now]);
-        wallet_move($owner, 'cash', $target, 'bubble_payout', sprintf('Bubble #%s expired at %s', number_format($headId), money($target)), 'bubble', $headId);
-        q('UPDATE users SET total_earned = total_earned + ? WHERE id = ?', [$target, $owner]);
+        $updated = q(
+            "UPDATE bubbles SET status = 'expired', earned = target, expired_at = ? WHERE id BETWEEN ? AND ? AND status = 'active'",
+            [$now, $expired + 1, $expired + $count]
+        )->rowCount();
+        if ($updated !== $count) {
+            throw new RuntimeException(sprintf('Expected to expire %d bubbles from #%d, updated %d.', $count, $expired + 1, $updated));
+        }
+        q('UPDATE pool SET balance = balance - ?, total_out = total_out + ?, bubbles_expired = bubbles_expired + ?,
+                updated_at = ? WHERE id = 1', [$total, $total, $count, $now]);
 
-        $popped[] = ['id' => $headId, 'user_id' => $owner, 'target' => $target];
+        $lines = [];
+        $earned = [];
+        foreach ($paid as $bubble) {
+            $lines[] = [
+                $bubble['user_id'],
+                $bubble['target'],
+                sprintf('Bubble #%s expired at %s', number_format($bubble['id']), money($bubble['target'])),
+                'bubble',
+                $bubble['id'],
+            ];
+            $earned[$bubble['user_id']] = ($earned[$bubble['user_id']] ?? 0) + $bubble['target'];
+        }
+        wallet_credit_many('cash', 'bubble_payout', $lines);
+        ksort($earned);
+        foreach ($earned as $owner => $amount) {
+            q('UPDATE users SET total_earned = total_earned + ? WHERE id = ?', [$amount, $owner]);
+        }
+
+        array_push($popped, ...$paid);
+        if ($count < $window) {
+            break; // the next bubble needs more than the pool holds
+        }
     }
     return $popped;
 }
@@ -326,20 +381,29 @@ function member_bubble_stats(int $userId): array
 }
 
 /** Recent expirations for public feeds (usernames masked). */
-function recent_expirations(int $limit = 8): array
+/**
+ * The last bubbles paid, newest first. Bubbles expire in id order, so they
+ * are simply the ids just below the expired counter (a few primary-key reads
+ * instead of sorting every expired bubble).
+ */
+function recent_expirations(int $limit = 8, ?array $pool = null): array
 {
+    $last = (int) ($pool ?? pool_state())['bubbles_expired'];
     return rows(
-        "SELECT b.id, b.target, b.expired_at, u.username
+        'SELECT b.id, b.target, b.expired_at, u.username
            FROM bubbles b JOIN users u ON u.id = b.user_id
-          WHERE b.status = 'expired' ORDER BY b.id DESC LIMIT " . max(1, $limit)
+          WHERE b.id > ? AND b.id <= ? ORDER BY b.id DESC',
+        [max(0, $last - max(1, $limit)), $last]
     );
 }
 
 function recent_purchases(int $limit = 8): array
 {
     return rows(
+        // STRAIGHT_JOIN: read the newest purchases first, then their members
+        // (left alone, MySQL may scan every member and sort all purchases).
         'SELECT p.id, p.quantity, p.total, p.created_at, u.username
-           FROM purchases p JOIN users u ON u.id = p.user_id
+           FROM purchases p STRAIGHT_JOIN users u ON u.id = p.user_id
           ORDER BY p.id DESC LIMIT ' . max(1, $limit)
     );
 }

@@ -7,7 +7,7 @@ $pool = pool_state();
 
 // Bubbles that expired since the last visit → celebration banner.
 $since = $user['pops_seen_at'] ?? $user['created_at'];
-$newPops = row(
+$newPops = row_required(
     "SELECT COUNT(*) AS n, COALESCE(SUM(earned), 0) AS total FROM bubbles WHERE user_id = ? AND status = 'expired' AND expired_at > ?",
     [$uid, $since]
 );

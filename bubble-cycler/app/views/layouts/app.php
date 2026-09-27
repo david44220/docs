@@ -13,7 +13,7 @@ $page ??= '';
 ?><!doctype html>
 <html lang="en">
 <head>
-<?= partial('head', ['title' => $title ?? '']) ?>
+<?= partial('head', ['title' => $title ?? '', 'scripts' => $scripts ?? []]) ?>
 </head>
 <body class="shell<?= $adminArea ? ' shell--admin' : '' ?>">
 <a class="skip-link" href="#content">Skip to content</a>
@@ -92,7 +92,7 @@ $page ??= '';
 
     <footer class="footer">
         <p class="footer__risk"><?= icon('info') ?><span><?= e(setting('disclaimer')) ?></span></p>
-        <p class="footer__meta">© <?= gmdate('Y') ?> <?= e(site_name()) ?> · <a href="<?= e(url('terms.php')) ?>">Terms &amp; risks</a><?= setting('support_email') !== '' ? ' · <a href="mailto:' . e(setting('support_email')) . '">Support</a>' : '' ?></p>
+        <p class="footer__meta">© <?= gmdate('Y') ?> <?= e(site_name()) ?> · <a href="<?= e(url('terms.php')) ?>">Terms &amp; risks</a> · <a href="<?= e(url('privacy.php')) ?>">Privacy</a><?= setting('support_email') !== '' ? ' · <a href="mailto:' . e(setting('support_email')) . '">Support</a>' : '' ?></p>
     </footer>
 </div>
 </body>

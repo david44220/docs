@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /$
+Allow: /index.php
+Allow: /terms.php
+Allow: /privacy.php
+Allow: /register.php
+Allow: /assets/
+Disallow: /

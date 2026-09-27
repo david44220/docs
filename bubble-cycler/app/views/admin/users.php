@@ -19,6 +19,7 @@
         </select>
         <?= icon('search') ?><input class="input input--sm" type="search" name="q" value="<?= e($search) ?>" placeholder="Username, email or IP">
     </form>
+    <?= csv_link('admin/users.php', ['filter' => $filter, 'q' => $search !== '' ? $search : null]) ?>
 </div>
 
 <section class="card card--flush">

@@ -15,6 +15,7 @@
         <input type="hidden" name="status" value="<?= e($status) ?>">
         <?= icon('search') ?><input class="input input--sm" type="search" name="q" value="<?= e($search) ?>" placeholder="Member or reference">
     </form>
+    <?= csv_link('admin/deposits.php', ['status' => $status, 'q' => $search !== '' ? $search : null]) ?>
 </div>
 
 <?php if ($review !== null): ?>

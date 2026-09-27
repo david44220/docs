@@ -92,7 +92,7 @@
                     <span class="field__label">Payment screenshot <?= (int) $method['require_proof'] === 1 ? '<small class="text-pink">required</small>' : '<small class="muted">optional</small>' ?></span>
                     <span class="file">
                         <input type="file" name="proof" accept="image/png,image/jpeg,image/webp,image/gif"<?= (int) $method['require_proof'] === 1 ? ' required' : '' ?> data-file-input>
-                        <span class="file__ui"><?= icon('image') ?> <span data-file-name>Choose an image (max 4 MB)</span></span>
+                        <span class="file__ui"><?= icon('image') ?> <span data-file-name data-default="Choose an image (max <?= e(proof_max_label()) ?>)">Choose an image (max <?= e(proof_max_label()) ?>)</span></span>
                     </span>
                 </label>
                 <button class="btn btn--primary btn--lg btn--block" type="submit"><?= icon('check') ?> I have sent the payment</button>

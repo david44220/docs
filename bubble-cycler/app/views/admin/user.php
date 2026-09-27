@@ -3,6 +3,8 @@
  * @var array $member
  * @var bool $isSelf
  * @var ?array $referrer
+ * @var int $ipTwins      other accounts seen on the member's IP
+ * @var bool $referrerIp  the referrer used the same IP
  * @var int $referrals
  * @var array $stats
  * @var array $pool
@@ -18,9 +20,15 @@ $symbol = setting('currency_symbol', '$');
 <section class="profile card card--glow">
     <?= user_avatar($member['username'], 'xl') ?>
     <div class="profile__text">
-        <h2><?= e($member['username']) ?> <?= $member['role'] === 'admin' ? status_badge('admin', 'Admin') : '' ?> <?= status_badge($member['status']) ?></h2>
-        <p class="muted"><?= e($member['email']) ?> · joined <?= e(fmt_date($member['created_at'], 'M j, Y')) ?> · last sign-in <?= e($member['last_login_at'] ? time_ago($member['last_login_at']) : 'never') ?><?= $member['last_ip'] ? ' from ' . e($member['last_ip']) : '' ?></p>
+        <h2><?= e($member['username']) ?> <?= $member['role'] === 'admin' ? status_badge('admin', 'Admin') : '' ?> <?= status_badge($member['status']) ?> <?= user_has_2fa($member) ? status_badge('active', '2FA on') : '' ?></h2>
+        <p class="muted"><?= e($member['email']) ?> · joined <?= e(fmt_date($member['created_at'], 'M j, Y')) ?><?= $member['register_ip'] ? ' from ' . e($member['register_ip']) : '' ?> · last sign-in <?= e($member['last_login_at'] ? time_ago($member['last_login_at']) : 'never') ?><?= $member['last_ip'] ? ' from ' . e($member['last_ip']) : '' ?></p>
         <p class="muted">Referred by <?= $referrer !== null ? '<a href="' . e(url('admin/user.php', ['id' => $referrer['id']])) . '">' . e($referrer['username']) . '</a>' : 'nobody' ?> · <?= plural($referrals, 'referral') ?></p>
+        <?php if ($referrerIp || $ipTwins > 0): ?>
+            <p class="flag"><?= icon('alert') ?> <span>
+                <?= $referrerIp ? 'Same IP address as the referrer. ' : '' ?>
+                <?php if ($ipTwins > 0): ?><a href="<?= e(url('admin/users.php', ['q' => $member['register_ip'] ?? $member['last_ip']])) ?>"><?= plural($ipTwins, 'other account') ?> on this IP</a>.<?php endif; ?>
+            </span></p>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -76,9 +84,24 @@ $symbol = setting('currency_symbol', '$');
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="password">
                 <input type="hidden" name="id" value="<?= $id ?>">
-                <input class="input" type="text" name="password" minlength="8" placeholder="New password (8+ chars)" autocomplete="off" required>
+                <input class="input" type="text" name="password" minlength="8" placeholder="New password" autocomplete="off" required aria-label="New password (at least 8 characters)">
                 <button class="btn btn--secondary" type="submit"><?= icon('key') ?> Reset</button>
             </form>
+            <form method="post" class="inline-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="email">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input class="input" type="email" name="email" value="<?= e($member['email']) ?>" maxlength="190" required aria-label="Email">
+                <button class="btn btn--secondary" type="submit"><?= icon('mail') ?> Save</button>
+            </form>
+            <?php if (user_has_2fa($member)): ?>
+                <form method="post">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="2fa">
+                    <input type="hidden" name="id" value="<?= $id ?>">
+                    <button class="btn btn--ghost" type="submit" data-confirm="Turn off two-factor authentication for <?= e($member['username']) ?>? Only do this after verifying their identity."><?= icon('shield') ?> Reset two-factor</button>
+                </form>
+            <?php endif; ?>
             <div class="row row--wrap">
                 <form method="post">
                     <?= csrf_field() ?>

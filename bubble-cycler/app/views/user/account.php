@@ -19,11 +19,20 @@
     </dl>
 </section>
 
+<section class="card security-row">
+    <span class="auth__badge<?= user_has_2fa($user) ? ' auth__badge--on' : '' ?>"><?= icon('shield') ?></span>
+    <div class="security-row__text">
+        <h2 class="card__title">Two-factor authentication <?= user_has_2fa($user) ? status_badge('active', 'On') : status_badge('pending', 'Off') ?></h2>
+        <p class="card__sub"><?= user_has_2fa($user) ? 'A code from your authenticator app is required at every sign-in.' : 'Add a second step to your sign-in with an authenticator app. Strongly recommended.' ?></p>
+    </div>
+    <a class="btn btn--<?= user_has_2fa($user) ? 'secondary' : 'primary' ?>" href="<?= e(url('two-factor.php')) ?>"><?= icon('shield') ?> <?= user_has_2fa($user) ? 'Manage' : 'Set up' ?></a>
+</section>
+
 <div class="grid grid--2 grid--top">
     <form method="post" class="card form">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="email">
-        <header class="card__head"><div><h2 class="card__title">Email address</h2><p class="card__sub">Used to identify you when you contact support.</p></div></header>
+        <header class="card__head"><div><h2 class="card__title">Email address</h2><p class="card__sub">Used for password resets and account notices.</p></div></header>
         <?php if ($errors['email']): ?><div class="alert alert--danger"><?= icon('alert') ?><div><?= e($errors['email']) ?></div></div><?php endif; ?>
         <label class="field">
             <span class="field__label">New email</span>

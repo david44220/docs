@@ -35,11 +35,17 @@ CREATE TABLE IF NOT EXISTS users (
   pops_seen_at     DATETIME     NULL,
   last_login_at    DATETIME     NULL,
   last_ip          VARCHAR(45)  NULL,
+  register_ip      VARCHAR(45)  NULL,
+  totp_secret      VARCHAR(255) NULL,   -- encrypted two-factor secret
+  totp_recovery    TEXT         NULL,   -- JSON list of hashed recovery codes
+  totp_last_step   BIGINT       NULL,   -- last accepted code (anti-replay)
+  totp_enabled_at  DATETIME     NULL,
   created_at       DATETIME     NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_username (username),
   UNIQUE KEY uq_users_email (email),
-  KEY idx_users_referrer (referrer_id)
+  KEY idx_users_referrer (referrer_id),
+  KEY idx_users_register_ip (register_ip)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Single-row table (id = 1). Every purchase locks this row, which serialises
@@ -232,6 +238,31 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   PRIMARY KEY (id),
   KEY idx_login_attempts_ip (ip, attempted_at),
   KEY idx_login_attempts_time (attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Generic throttling (registrations, password resets, two-factor attempts).
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  bucket     VARCHAR(32)  NOT NULL,
+  subject    VARCHAR(190) NOT NULL,
+  created_at DATETIME     NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_rate_limits_lookup (bucket, subject, created_at),
+  KEY idx_rate_limits_time (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Password reset links: only a SHA-256 hash of the emailed token is stored.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id    INT UNSIGNED NOT NULL,
+  token_hash CHAR(64)     NOT NULL,
+  expires_at DATETIME     NOT NULL,
+  used_at    DATETIME     NULL,
+  ip         VARCHAR(45)  NULL,
+  created_at DATETIME     NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_password_resets_token (token_hash),
+  KEY idx_password_resets_user (user_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS admin_logs (

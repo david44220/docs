@@ -8,22 +8,55 @@ if (current_user() !== null) {
 $error = null;
 $login = '';
 $next = post('next', query('next'));
+$step = query('step') === 'code' ? 'code' : 'password';
+$pending = $step === 'code' ? pending_two_factor() : null;
+if ($step === 'code' && $pending === null) {
+    flash('info', 'Please sign in again.');
+    redirect(url('login.php'));
+}
 
-if (is_post()) {
+$landing = static fn (array $user, string $next): string => safe_next(
+    $next,
+    url($user['role'] === 'admin' && $next === '' ? 'admin/index.php' : 'dashboard.php')
+);
+
+if (is_post() && $step === 'password') {
     $login = post('login');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     try {
-        $user = attempt_login($login, $password);
+        $user = check_credentials($login, $password);
+        if (user_has_2fa($user)) {
+            begin_two_factor($user, $next);
+            redirect(url('login.php', ['step' => 'code']));
+        }
+        login_user($user);
         flash('success', 'Welcome back, ' . $user['username'] . '!');
-        redirect(safe_next($next, url($user['role'] === 'admin' && $next === '' ? 'admin/index.php' : 'dashboard.php')));
+        redirect($landing($user, $next));
     } catch (AppError $e) {
         $error = $e->getMessage();
     }
 }
 
+if (is_post() && $pending !== null) {
+    try {
+        $next = complete_two_factor(post('code'));
+        flash('success', 'Welcome back, ' . $pending['username'] . '!');
+        redirect($landing($pending, $next));
+    } catch (AppError $e) {
+        $error = $e->getMessage();
+        if (pending_two_factor() === null) {
+            flash('error', $error);
+            redirect(url('login.php'));
+        }
+    }
+}
+
 render('auth/login', [
-    'title' => 'Sign in',
-    'error' => $error,
-    'login' => $login,
-    'next'  => $next,
+    'title'   => $step === 'code' ? 'Two-factor authentication' : 'Sign in',
+    'error'   => $error,
+    'login'   => $login,
+    'next'    => $next,
+    'step'    => $step,
+    'pending' => $pending,
+    'canReset' => mail_enabled(),
 ], 'auth');

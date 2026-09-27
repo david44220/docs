@@ -11,7 +11,7 @@ $admin = fresh_install(['ad_required' => '0', 'min_withdrawal' => (string) u('1'
 payment_method_save($admin, null, 'withdrawal', ['name' => 'Test payout', 'min_amount' => '1', 'status' => 'active']);
 $buyers = [];
 for ($i = 1; $i <= 12; $i++) {
-    $buyers[] = $id = register_user('user' . $i, "user$i@example.com", 'password123', $i > 1 ? $buyers[0] : null);
+    $buyers[] = $id = register_user('user' . $i, "user$i@example.com", TEST_PASSWORD, $i > 1 ? $buyers[0] : null);
     deposit_manual($admin, $id, u('150'), 'seed');
 }
 
@@ -19,7 +19,12 @@ $pipes = [];
 $processes = [];
 $start = microtime(true);
 foreach ([...array_map(static fn (int $id): array => ['buyer', $id], $buyers), ['admin', $admin]] as $n => [$role, $id]) {
-    $processes[] = proc_open([PHP_BINARY, __DIR__ . '/stress_worker.php', $role, (string) $id, '60'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes[$n]);
+    $process = proc_open([PHP_BINARY, __DIR__ . '/stress_worker.php', $role, (string) $id, '60'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes[$n]);
+    if ($process === false) {
+        fwrite(STDERR, "Could not start a worker process.\n");
+        exit(1);
+    }
+    $processes[] = $process;
 }
 $totals = ['buy' => 0, 'refused' => 0, 'errors' => 0, 'popped' => 0];
 $stderr = '';

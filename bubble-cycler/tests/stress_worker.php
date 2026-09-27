@@ -31,7 +31,8 @@ for ($i = 0; $i < (int) $iterations; $i++) {
         } else {
             $roll = mt_rand(1, 3);
             if ($roll === 1) {
-                pool_inject($userId, u((string) mt_rand(1, 3)), 'stress');
+                // Now and then a big top-up that pays hundreds of bubbles in batches.
+                pool_inject($userId, u((string) (mt_rand(1, 12) === 1 ? mt_rand(300, 900) : mt_rand(1, 3))), 'stress');
             } elseif ($roll === 2) {
                 $pending = val("SELECT id FROM withdrawals WHERE status = 'pending' ORDER BY RAND() LIMIT 1");
                 if ($pending !== null) {

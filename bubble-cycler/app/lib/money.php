@@ -47,7 +47,7 @@ function to_units(string|int|null $value): ?int
     if (!preg_match('/^(\d{0,12})(?:\.(\d{0,6}))?$/', $text, $m)) {
         return null;
     }
-    $whole = $m[1] ?? '';
+    $whole = $m[1];
     $fraction = $m[2] ?? '';
     if ($whole === '' && $fraction === '') {
         return null;

@@ -23,15 +23,19 @@ $where = ['b.status = ?'];
 $params = [$tab === 'queue' ? 'active' : 'expired'];
 $userFilter = query('user');
 if ($userFilter !== '') {
-    $where[] = 'u.username = ?';
-    $params[] = $userFilter;
+    $where[] = 'b.user_id = ?';
+    $params[] = (int) val('SELECT id FROM users WHERE username = ?', [$userFilter]);
 }
 $sqlWhere = 'WHERE ' . implode(' AND ', $where);
-$pager = paginate((int) val("SELECT COUNT(*) FROM bubbles b JOIN users u ON u.id = b.user_id $sqlWhere", $params), 30);
+$pager = paginate((int) val("SELECT COUNT(*) FROM bubbles b $sqlWhere", $params), 30);
 $order = $tab === 'queue' ? 'ASC' : 'DESC';
+// Page through ids on the (status, id) index, then fetch the rows and their members.
 $bubbles = rows(
-    "SELECT b.*, u.username FROM bubbles b JOIN users u ON u.id = b.user_id $sqlWhere
-      ORDER BY b.id $order LIMIT {$pager['limit']} OFFSET {$pager['offset']}",
+    "SELECT b.*, u.username
+       FROM (SELECT b.id FROM bubbles b $sqlWhere ORDER BY b.id $order LIMIT {$pager['limit']} OFFSET {$pager['offset']}) page
+       JOIN bubbles b ON b.id = page.id
+       JOIN users u ON u.id = b.user_id
+      ORDER BY b.id $order",
     $params
 );
 

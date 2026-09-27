@@ -18,11 +18,11 @@ function install_requirements(): array
     ];
 }
 
-/** Split schema.sql into statements (the file has no semicolons inside strings). */
+/** Split schema.sql into statements (the file has no string literals, only DDL and "--" comments). */
 function install_schema_statements(): array
 {
     $sql = (string) file_get_contents(APP_ROOT . '/database/schema.sql');
-    $sql = preg_replace('/^\s*--.*$/m', '', $sql) ?? '';
+    $sql = preg_replace('/--[^\n]*/', '', $sql) ?? '';
     return array_values(array_filter(array_map('trim', explode(';', $sql)), static fn ($s) => $s !== ''));
 }
 
@@ -69,9 +69,7 @@ function install_database(array $db, array $site, array $admin): bool
         $pdo->exec($statement);
     }
 
-    $exists = $pdo->prepare('SELECT COUNT(*) FROM users WHERE role = ?');
-    $exists->execute(['admin']);
-    $hasAdmin = (int) $exists->fetchColumn() > 0;
+    $hasAdmin = (int) install_value($pdo, 'SELECT COUNT(*) FROM users WHERE role = ?', ['admin']) > 0;
 
     $now = now();
     $settings = $pdo->prepare('INSERT IGNORE INTO settings (`key`, `value`) VALUES (?, ?)');
@@ -79,6 +77,7 @@ function install_database(array $db, array $site, array $admin): bool
         $settings->execute([$key, $key === 'site_name' ? $siteName : $value]);
     }
     $pdo->prepare('UPDATE settings SET `value` = ? WHERE `key` = ?')->execute([$siteName, 'site_name']);
+    $settings->execute(['db_version', (string) DB_VERSION]);
     $pdo->exec('INSERT IGNORE INTO pool (id, updated_at) VALUES (1, ' . $pdo->quote($now) . ')');
 
     if (!$hasAdmin) {
@@ -94,7 +93,7 @@ function install_database(array $db, array $site, array $admin): bool
     }
 
     // Starter content: one house ad and inactive example payment methods.
-    $houseAds = (int) $pdo->query('SELECT COUNT(*) FROM ad_campaigns WHERE is_house = 1')->fetchColumn();
+    $houseAds = (int) install_value($pdo, 'SELECT COUNT(*) FROM ad_campaigns WHERE is_house = 1');
     if ($houseAds === 0) {
         $advertiseUrl = match (true) {
             $baseUrl !== ''     => $baseUrl . '/advertise.php',
@@ -113,7 +112,7 @@ function install_database(array $db, array $site, array $admin): bool
                 $now,
             ]);
     }
-    $methods = (int) $pdo->query('SELECT COUNT(*) FROM payment_methods')->fetchColumn();
+    $methods = (int) install_value($pdo, 'SELECT COUNT(*) FROM payment_methods');
     if ($methods === 0) {
         $method = $pdo->prepare('INSERT INTO payment_methods (type, name, currency, color, account_label, account_value, instructions,
                                  min_amount, max_amount, fee_fixed, fee_percent_bp, require_proof, status, sort_order, created_at, updated_at)
@@ -129,6 +128,13 @@ function install_database(array $db, array $site, array $admin): bool
     return !$hasAdmin;
 }
 
+function install_value(PDO $pdo, string $sql, array $params = []): mixed
+{
+    $statement = $pdo->prepare($sql);
+    $statement->execute($params);
+    return $statement->fetchColumn();
+}
+
 function install_config_source(array $db, string $baseUrl): string
 {
     $config = [
@@ -139,12 +145,20 @@ function install_config_source(array $db, string $baseUrl): string
             'user' => (string) $db['user'],
             'pass' => (string) $db['pass'],
         ],
-        // Full public URL, e.g. https://example.com — leave empty to auto-detect.
+        // Full public URL, e.g. https://example.com — required for emails (reset links).
         'base_url'    => $baseUrl,
+        // Encrypts two-factor secrets and the SMTP password. Keep it secret, never change it.
+        'app_key'     => base64_encode(random_bytes(32)),
         // Show error details. Never enable on a live site.
         'debug'       => false,
+        // Redirect every http:// request to https:// (on when the site was installed over HTTPS).
+        'force_https' => str_starts_with($baseUrl, 'https://'),
+        // Send Strict-Transport-Security on HTTPS responses.
+        'hsts'        => true,
         // Send the Content-Security-Policy header (disable only if you add third-party scripts).
         'csp'         => true,
+        // Sign members out after this many seconds of inactivity.
+        'session_idle' => 7200,
         // Behind Cloudflare or a reverse proxy: e.g. 'HTTP_CF_CONNECTING_IP' / true.
         'ip_header'   => '',
         'trust_proxy' => false,

@@ -41,10 +41,28 @@ if ($search !== '') {
     $params[] = '%' . $search . '%';
 }
 $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+if (query('export') === 'csv') {
+    admin_log($aid, 'export.deposits', 'Exported deposits (' . $statuses[$status] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
+    csv_export('deposits', "SELECT d.*, u.username, u.email FROM deposits d STRAIGHT_JOIN users u ON u.id = d.user_id $sqlWhere ORDER BY d.id", $params, [
+        'ID'              => static fn (array $d) => $d['id'],
+        'Created (UTC)'   => static fn (array $d) => $d['created_at'],
+        'Member'          => static fn (array $d) => $d['username'],
+        'Email'           => static fn (array $d) => $d['email'],
+        'Method'          => static fn (array $d) => $d['method_name'],
+        'Amount'          => static fn (array $d) => csv_money($d['amount']),
+        'Fee'             => static fn (array $d) => csv_money($d['fee']),
+        'Credited'        => static fn (array $d) => $d['status'] === 'rejected' ? '0.00' : csv_money($d['credit_amount']),
+        'Reference'       => static fn (array $d) => $d['reference'],
+        'Sender'          => static fn (array $d) => $d['sender'],
+        'Status'          => static fn (array $d) => $d['status'],
+        'Admin note'      => static fn (array $d) => $d['admin_note'],
+        'Processed (UTC)' => static fn (array $d) => $d['processed_at'],
+    ]);
+}
 $pager = paginate((int) val("SELECT COUNT(*) FROM deposits d JOIN users u ON u.id = d.user_id $sqlWhere", $params), 20);
 $order = $status === 'pending' ? 'ASC' : 'DESC';
 $deposits = rows(
-    "SELECT d.*, u.username FROM deposits d JOIN users u ON u.id = d.user_id $sqlWhere
+    "SELECT d.*, u.username FROM deposits d STRAIGHT_JOIN users u ON u.id = d.user_id $sqlWhere
       ORDER BY d.id $order LIMIT {$pager['limit']} OFFSET {$pager['offset']}",
     $params
 );

@@ -3,6 +3,8 @@
  * @var array $v       current values (money fields also as *_text)
  * @var ?string $error
  * @var array $pool
+ * @var list<string> $warnings  configuration problems to fix before going live
+ * @var bool $mailReady
  */
 $symbol = setting('currency_symbol', '$');
 $price = to_units($v['bubble_price_text']) ?? 0;
@@ -30,6 +32,9 @@ $intField = static function (string $name, string $label, string $hint, array $v
     <?= csrf_field() ?>
     <?php if ($error): ?>
         <div class="alert alert--danger" role="alert"><?= icon('alert') ?><div><?= e($error) ?></div></div>
+    <?php endif; ?>
+    <?php if ($warnings !== []): ?>
+        <div class="alert alert--warning"><?= icon('alert') ?><div><strong>Before going live</strong><ul class="alert__list"><?php foreach ($warnings as $warning): ?><li><?= e($warning) ?></li><?php endforeach; ?></ul></div></div>
     <?php endif; ?>
 
     <section class="card card--glow settings__section">
@@ -103,6 +108,55 @@ $intField = static function (string $name, string $label, string $hint, array $v
         <?= $switch('maintenance_mode', 'Maintenance mode', 'Only admins can use the site; members see a maintenance page.', $v) ?>
     </section>
 
+    <section class="card settings__section" id="security">
+        <header class="settings__head">
+            <span class="settings__icon settings__icon--green"><?= icon('shield') ?></span>
+            <div><h2 class="card__title">Security</h2><p class="card__sub">Sign-in protection and sign-up limits.</p></div>
+        </header>
+        <div class="settings__grid">
+            <?= $intField('max_registrations_per_ip', 'Sign-ups per IP address', 'Per 24 hours. 0 = no limit. Slows down multi-account abuse.', $v, 'per day') ?>
+        </div>
+        <?= $switch('admin_2fa_required', 'Require two-factor authentication for admins', 'Admins must set up an authenticator app before they can open the admin panel.', $v) ?>
+    </section>
+
+    <section class="card settings__section" id="email">
+        <header class="settings__head">
+            <span class="settings__icon settings__icon--pink"><?= icon('mail') ?></span>
+            <div><h2 class="card__title">Email <?= $mailReady ? status_badge('active', 'Sending') : status_badge('pending', 'Off') ?></h2><p class="card__sub">Password resets, security notices and payment updates. Needs base_url in config.php.</p></div>
+        </header>
+        <div class="settings__grid">
+            <label class="field"><span class="field__label">Send emails with</span>
+                <select class="select" name="mail_transport">
+                    <?php foreach (['off' => 'Off — no emails', 'smtp' => 'SMTP server (recommended)', 'mail' => 'PHP mail() / sendmail', 'log' => 'Write to storage/logs/mail.log (testing)'] as $key => $label): ?>
+                        <option value="<?= $key ?>"<?= $key === ($v['mail_transport'] ?? 'off') ? ' selected' : '' ?>><?= e($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label class="field"><span class="field__label">Sender address</span><input class="input" type="email" name="mail_from" value="<?= e($v['mail_from'] ?? '') ?>" placeholder="no-reply@example.com"></label>
+            <label class="field"><span class="field__label">Sender name <small class="muted">optional</small></span><input class="input" name="mail_from_name" value="<?= e($v['mail_from_name'] ?? '') ?>" maxlength="60" placeholder="<?= e($v['site_name']) ?>"></label>
+            <label class="field"><span class="field__label">SMTP host</span><input class="input" name="smtp_host" value="<?= e($v['smtp_host'] ?? '') ?>" placeholder="smtp.example.com" autocomplete="off"></label>
+            <?= $intField('smtp_port', 'SMTP port', '587 with STARTTLS, 465 with SSL.', $v) ?>
+            <label class="field"><span class="field__label">Encryption</span>
+                <select class="select" name="smtp_encryption">
+                    <?php foreach (['tls' => 'STARTTLS (port 587)', 'ssl' => 'SSL/TLS (port 465)', 'none' => 'None (local relay only)'] as $key => $label): ?>
+                        <option value="<?= $key ?>"<?= $key === ($v['smtp_encryption'] ?? 'tls') ? ' selected' : '' ?>><?= e($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label class="field"><span class="field__label">SMTP username</span><input class="input" name="smtp_username" value="<?= e($v['smtp_username'] ?? '') ?>" autocomplete="off"></label>
+            <div class="field">
+                <label class="field__label" for="smtp-password">SMTP password <?php if (($v['smtp_password'] ?? '') !== ''): ?><small class="muted">saved — leave empty to keep it</small><?php endif; ?></label>
+                <input class="input" id="smtp-password" type="password" name="smtp_password" value="" autocomplete="new-password" placeholder="<?= ($v['smtp_password'] ?? '') !== '' ? '••••••••' : '' ?>">
+                <?php if (($v['smtp_password'] ?? '') !== ''): ?><label class="check check--sm"><input type="checkbox" name="smtp_password_clear" value="1"><span>Remove the saved password</span></label><?php endif; ?>
+            </div>
+        </div>
+        <?= $switch('notify_members', 'Email members about their payments', 'Deposit approved or rejected, withdrawal sent or declined. Security notices are always sent.', $v) ?>
+        <?= $switch('notify_admins', 'Email the support address about new requests', 'New deposits to review and withdrawals to pay.', $v) ?>
+        <div class="settings__inline-action">
+            <button class="btn btn--secondary" type="submit" name="action" value="test_email"><?= icon('mail') ?> Save &amp; send a test email to me</button>
+        </div>
+    </section>
+
     <section class="card settings__section">
         <header class="settings__head">
             <span class="settings__icon settings__icon--violet"><?= icon('file') ?></span>
@@ -110,6 +164,7 @@ $intField = static function (string $name, string $label, string $hint, array $v
         </header>
         <label class="field"><span class="field__label">Risk disclaimer</span><textarea class="textarea" name="disclaimer" rows="3" maxlength="2000"><?= e($v['disclaimer']) ?></textarea></label>
         <label class="field"><span class="field__label">Terms <small class="muted">plain text, blank line between paragraphs · leave empty for the default terms</small></span><textarea class="textarea" name="terms_text" rows="8" maxlength="20000"><?= e($v['terms_text']) ?></textarea></label>
+        <label class="field"><span class="field__label">Privacy policy <small class="muted">plain text · leave empty for the default policy</small></span><textarea class="textarea" name="privacy_text" rows="8" maxlength="20000"><?= e($v['privacy_text'] ?? '') ?></textarea></label>
     </section>
 
     <div class="settings__save">

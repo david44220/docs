@@ -6,13 +6,40 @@
  */
 declare(strict_types=1);
 
-const PROOF_MAX_BYTES = 4 * 1024 * 1024;
+const PROOF_MAX_BYTES = 4 * 1024 * 1024; // hard cap; the server's PHP limits may be lower
 const PROOF_TYPES = [
     'image/jpeg' => 'jpg',
     'image/png'  => 'png',
     'image/webp' => 'webp',
     'image/gif'  => 'gif',
 ];
+
+/** "8M" / "512K" / "1G" from php.ini → bytes (0 when unlimited or unknown). */
+function ini_bytes(string $key): int
+{
+    $value = trim((string) ini_get($key));
+    if ($value === '' || !preg_match('/^(\d+)\s*([KMG]?)/i', $value, $m)) {
+        return 0;
+    }
+    return (int) $m[1] * match (strtoupper($m[2])) {
+        'G' => 1024 ** 3,
+        'M' => 1024 ** 2,
+        'K' => 1024,
+        default => 1,
+    };
+}
+
+/** Largest proof upload this server accepts. */
+function proof_max_bytes(): int
+{
+    return min(array_filter([PROOF_MAX_BYTES, ini_bytes('upload_max_filesize'), ini_bytes('post_max_size')], static fn (int $v): bool => $v > 0));
+}
+
+function proof_max_label(): string
+{
+    $mb = proof_max_bytes() / 1024 / 1024;
+    return rtrim(rtrim(number_format($mb, 1), '0'), '.') . ' MB';
+}
 
 function proof_dir(): string
 {
@@ -30,13 +57,13 @@ function store_proof_upload(?array $file): ?string
     }
     if ($file['error'] !== UPLOAD_ERR_OK) {
         throw new AppError(match ($file['error']) {
-            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The screenshot is too large (4 MB maximum).',
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The screenshot is too large (' . proof_max_label() . ' maximum).',
             UPLOAD_ERR_PARTIAL => 'The upload was interrupted. Please try again.',
             default => 'The screenshot could not be uploaded. Please try again.',
         });
     }
-    if ((int) $file['size'] > PROOF_MAX_BYTES) {
-        throw new AppError('The screenshot is too large (4 MB maximum).');
+    if ((int) $file['size'] > proof_max_bytes()) {
+        throw new AppError('The screenshot is too large (' . proof_max_label() . ' maximum).');
     }
     $tmp = (string) $file['tmp_name'];
     if (!is_uploaded_file($tmp)) {

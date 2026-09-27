@@ -7,6 +7,10 @@ $uid = (int) $user['id'];
 if (is_post()) {
     $quantity = (int) post('quantity', '1');
     $wallet = post('wallet', 'purchase');
+    if (!form_nonce_consume('buy', post('nonce'))) {
+        flash('info', 'This purchase form was already submitted. Check your bubbles below before buying again.');
+        redirect(url('bubbles.php'));
+    }
     try {
         $result = buy_bubbles($uid, $quantity, $wallet, post('ad_token'));
         $label = $result['quantity'] === 1
@@ -45,4 +49,5 @@ render('user/buy', [
     'quote'    => queue_quote($pool, 1),
     'quantity' => max(1, min($max > 0 ? $max : 1000, query_int('qty', 1))),
     'wallet'   => query('wallet') === 'cash' && setting_bool('allow_cash_purchase') ? 'cash' : 'purchase',
+    'nonce'    => form_nonce('buy'),
 ]);

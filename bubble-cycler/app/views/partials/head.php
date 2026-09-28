@@ -31,15 +31,17 @@ $origin = mail_base_url() !== '' ? (string) preg_replace('#^(https?://[^/]+).*$#
 <?php endif; ?>
 <meta name="twitter:card" content="summary_large_image">
 <?php endif; ?>
-<meta name="theme-color" content="#07080f">
+<meta name="theme-color" content="#07090f">
 <meta name="color-scheme" content="dark">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <link rel="icon" href="<?= e(asset('img/favicon.svg')) ?>" type="image/svg+xml">
 <link rel="apple-touch-icon" href="<?= e(asset('img/apple-touch-icon.png')) ?>">
 <link rel="manifest" href="<?= e(url('manifest.php')) ?>">
-<?php /* Same URLs as the @font-face rules in app.css (no ?v=), or the browser downloads each font twice. */ ?>
-<link rel="preload" href="<?= e(url('assets/fonts/sora-latin-wght-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
+<?php /* Same URL as the @font-face rule in fonts.css (no ?v=), or the browser downloads the font twice. */ ?>
 <link rel="preload" href="<?= e(url('assets/fonts/inter-latin-wght-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
+<?php /* The Cosmic Loop design: Inter, the mockup's stylesheet unchanged, then the application layer. */ ?>
+<link rel="stylesheet" href="<?= e(asset('css/fonts.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('css/cosmic.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
 <?php foreach ($scripts ?? [] as $script): ?>
 <script src="<?= e(asset($script)) ?>" defer></script>

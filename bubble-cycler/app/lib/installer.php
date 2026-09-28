@@ -53,7 +53,7 @@ function install_database(array $db, array $site, array $admin): bool
     validate_username($admin['username']);
     validate_email($admin['email']);
     validate_password($admin['password']);
-    $siteName = trim((string) ($site['site_name'] ?? '')) ?: 'BubbleCycle';
+    $siteName = trim((string) ($site['site_name'] ?? '')) ?: 'Bubble Cycler';
     $baseUrl = rtrim(trim((string) ($site['base_url'] ?? '')), '/');
     if ($baseUrl !== '' && !valid_http_url($baseUrl)) {
         throw new AppError('The site URL must start with http:// or https://');

@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 const SETTING_DEFAULTS = [
     // General
-    'site_name'          => 'BubbleCycle',
+    'site_name'          => 'Bubble Cycler',
     'currency_symbol'    => '$',
     'currency_code'      => 'USD',
     'timezone'           => 'UTC',
@@ -113,7 +113,7 @@ function settings_save(array $values): void
 
 function site_name(): string
 {
-    return setting('site_name', 'BubbleCycle');
+    return setting('site_name', 'Bubble Cycler');
 }
 
 /** Platform share of one bubble after the pool and the referral commission. */

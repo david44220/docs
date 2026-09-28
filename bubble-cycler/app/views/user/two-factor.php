@@ -100,7 +100,7 @@
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="enable">
                     <label class="field">
-                        <span class="field__label">3. Enter the 6-digit code shown in the app</span>
+                        <span class="field__label">03 · Enter the 6-digit code shown in the app</span>
                         <input class="input input--code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" required>
                     </label>
                     <button class="btn btn--primary btn--lg" type="submit"><?= icon('shield') ?> Turn on two-factor authentication</button>

@@ -142,7 +142,7 @@ function status_badge(string $status, ?string $label = null): string
 
 function method_avatar(array $method, string $size = ''): string
 {
-    $color = preg_match('/^#[0-9a-f]{6}$/i', (string) ($method['color'] ?? '')) ? $method['color'] : '#8b5cf6';
+    $color = preg_match('/^#[0-9a-f]{6}$/i', (string) ($method['color'] ?? '')) ? $method['color'] : '#dfaaff';
     $class = 'avatar' . ($size !== '' ? ' avatar--' . $size : '');
     if (!empty($method['logo_url'])) {
         return '<span class="' . $class . '" style="--c:' . e($color) . '"><img src="' . e($method['logo_url'])

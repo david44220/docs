@@ -12,7 +12,8 @@
     <?php if ($step === 'code'): ?>
         <header class="auth__head">
             <span class="auth__badge"><?= icon('shield') ?></span>
-            <h1>Two-factor check</h1>
+            <p class="eyebrow">Security</p>
+            <h1>Two-factor check.</h1>
             <p class="muted">Enter the 6-digit code from your authenticator app for <strong><?= e($pending['username'] ?? '') ?></strong>, or one of your recovery codes.</p>
         </header>
 
@@ -26,12 +27,13 @@
                 <span class="field__label">Authentication code</span>
                 <input class="input input--code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="123 456" required autofocus>
             </label>
-            <button class="btn btn--primary btn--lg btn--block" type="submit"><?= icon('check') ?> Verify and sign in</button>
+            <button class="btn btn--primary btn--lg btn--block" type="submit">Verify and sign in<span class="btn__glyph" aria-hidden="true">↗</span></button>
         </form>
         <p class="auth__switch"><a href="<?= e(url('login.php')) ?>">Use another account</a></p>
     <?php else: ?>
         <header class="auth__head">
-            <h1>Welcome back</h1>
+            <p class="eyebrow">Member area</p>
+            <h1>Welcome back.</h1>
             <p class="muted">Sign in to check on your bubbles.</p>
         </header>
 
@@ -50,7 +52,7 @@
                 <span class="field__label">Password <?php if ($canReset): ?><a class="field__link" href="<?= e(url('forgot.php')) ?>">Forgot it?</a><?php endif; ?></span>
                 <span class="input-icon"><?= icon('key') ?><input class="input" type="password" name="password" autocomplete="current-password" required></span>
             </label>
-            <button class="btn btn--primary btn--lg btn--block" type="submit"><?= icon('arrow-right') ?> Sign in</button>
+            <button class="btn btn--primary btn--lg btn--block" type="submit">Sign in<span class="btn__glyph" aria-hidden="true">↗</span></button>
         </form>
 
         <p class="auth__switch">New here? <a href="<?= e(url('register.php')) ?>">Create an account</a></p>

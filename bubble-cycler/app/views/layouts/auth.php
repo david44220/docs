@@ -1,48 +1,47 @@
 <?php
 /**
- * Split-screen layout for sign in / registration.
+ * Split screen for sign in, registration and password reset: the Cosmic Loop
+ * nebula on the left (the landing's hero image, eyebrow, headline and
+ * captions), the form on the right.
  *
  * @var string $content
  */
 $pool = pool_state();
+$edition = cosmic_edition();
 ?><!doctype html>
 <html lang="en">
 <head>
 <?= partial('head', ['title' => $title ?? '']) ?>
 </head>
-<body class="auth-page">
-<?= partial('ambient') ?>
+<body class="auth-page cosmic-app theme-violet">
 <div class="auth">
-    <section class="auth__art" aria-hidden="true">
-        <a class="brand" href="<?= e(url('index.php')) ?>">
-            <img class="brand__mark" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="34" height="34">
-            <span class="brand__name"><?= e(site_name()) ?></span>
-        </a>
-        <div class="auth__cluster">
-            <?= bubble_html(['size' => 'xl', 'state' => 'filling', 'fill' => 62, 'delay' => '-1']) ?>
-            <?= bubble_html(['size' => 'md', 'state' => 'idle', 'delay' => '-3']) ?>
-            <?= bubble_html(['size' => 'sm', 'state' => 'idle', 'delay' => '-5']) ?>
-            <?= bubble_html(['size' => 'xs', 'state' => 'idle', 'delay' => '-2']) ?>
+    <section class="auth__art">
+        <img class="auth__image" src="<?= e(asset('img/hero-08.webp')) ?>" alt="" fetchpriority="high">
+        <div class="auth__overlay"></div>
+        <div class="auth__top">
+            <?= partial('brand', ['href' => url('index.php')]) ?>
+            <a class="auth__home" href="<?= e(url('index.php')) ?>">Home<span aria-hidden="true">↗</span></a>
         </div>
         <div class="auth__quote">
-            <h2>Every bubble rises.<br><span class="text-iris">The pool decides when it expires.</span></h2>
-            <p><?= e(money(setting_int('bubble_price'))) ?> per bubble · <?= e(money(setting_int('pool_share'))) ?> to the pool · expires at <?= e(money(setting_int('bubble_target'))) ?></p>
+            <p class="eyebrow"><span class="eyebrow__line"></span><?= e($edition['name']) ?> <span class="eyebrow__dot">·</span> <?= e($edition['number']) ?></p>
+            <p class="auth__title"><span>A different</span><span class="auth__title-accent">orbit.</span></p>
+            <p class="auth__lead">Bubbles enter their advertising cycle.</p>
+            <p class="auth__terms"><?= e(money(setting_int('bubble_price'))) ?> per bubble · <?= e(money(setting_int('pool_share'))) ?> to the pool · expires at <?= e(money(setting_int('bubble_target'))) ?>, in purchase order. No return is guaranteed.</p>
         </div>
-        <dl class="auth__stats">
-            <div><dt>Bubbles bought</dt><dd><?= number_format((int) $pool['bubbles_sold']) ?></dd></div>
-            <div><dt>Expired &amp; paid</dt><dd><?= number_format((int) $pool['bubbles_expired']) ?></dd></div>
-            <div><dt>In the pool</dt><dd><?= e(money($pool['balance'])) ?></dd></div>
-        </dl>
+        <div class="auth__foot">
+            <dl class="auth__stats">
+                <div><dt>Bubbles bought</dt><dd><?= number_format((int) $pool['bubbles_sold']) ?></dd></div>
+                <div><dt>Expired &amp; paid</dt><dd><?= number_format((int) $pool['bubbles_expired']) ?></dd></div>
+                <div><dt>In the pool</dt><dd><?= e(money($pool['balance'])) ?></dd></div>
+            </dl>
+            <div class="auth__caption" aria-hidden="true"><span><?= e($edition['code']) ?></span><span><?= e($edition['palette']) ?></span></div>
+        </div>
     </section>
-    <section class="auth__panel">
-        <a class="brand auth__brand-mobile" href="<?= e(url('index.php')) ?>">
-            <img class="brand__mark" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="30" height="30">
-            <span class="brand__name"><?= e(site_name()) ?></span>
-        </a>
+    <main class="auth__panel">
         <?= partial('flashes', ['flashes' => take_flashes()]) ?>
         <?= $content ?>
         <p class="auth__risk"><?= e(setting('disclaimer')) ?></p>
-    </section>
+    </main>
 </div>
 </body>
 </html>

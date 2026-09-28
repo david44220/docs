@@ -32,7 +32,7 @@ function payment_method_save(int $adminId, ?int $id, string $type, array $input)
     $name = trim((string) ($input['name'] ?? ''));
     $currency = strtoupper(trim((string) ($input['currency'] ?? ''))) ?: 'USD';
     $logo = trim((string) ($input['logo_url'] ?? ''));
-    $color = trim((string) ($input['color'] ?? '#8b5cf6'));
+    $color = trim((string) ($input['color'] ?? '#dfaaff'));
     $accountLabel = trim((string) ($input['account_label'] ?? ''));
     $accountValue = trim((string) ($input['account_value'] ?? ''));
     $instructions = trim((string) ($input['instructions'] ?? ''));
@@ -52,7 +52,7 @@ function payment_method_save(int $adminId, ?int $id, string $type, array $input)
         throw new AppError('Logo must be an https:// image URL, or leave it empty.');
     }
     if (!preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
-        $color = '#8b5cf6';
+        $color = '#dfaaff';
     }
     if ($min === null || $max === null || $feeFixed === null || $feePercent === null) {
         throw new AppError('Limits and fees must be valid amounts, e.g. 10 or 2.50.');

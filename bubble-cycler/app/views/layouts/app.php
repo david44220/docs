@@ -15,16 +15,12 @@ $page ??= '';
 <head>
 <?= partial('head', ['title' => $title ?? '', 'scripts' => $scripts ?? []]) ?>
 </head>
-<body class="shell<?= $adminArea ? ' shell--admin' : '' ?>">
+<body class="shell cosmic-app theme-violet<?= $adminArea ? ' shell--admin' : '' ?>">
 <a class="skip-link" href="#content">Skip to content</a>
-<?= partial('ambient') ?>
 
 <aside class="sidebar" id="sidebar" data-sidebar>
     <div class="sidebar__top">
-        <a class="brand" href="<?= e(url($adminArea ? 'admin/index.php' : 'dashboard.php')) ?>">
-            <img class="brand__mark" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="34" height="34">
-            <span class="brand__name"><?= e(site_name()) ?></span>
-        </a>
+        <?= partial('brand', ['href' => url($adminArea ? 'admin/index.php' : 'dashboard.php')]) ?>
         <?php if ($adminArea): ?><span class="sidebar__tag"><?= icon('shield') ?>Admin</span><?php endif; ?>
         <button class="icon-btn sidebar__close" type="button" data-sidebar-close aria-label="Close menu"><?= icon('x') ?></button>
     </div>
@@ -68,7 +64,7 @@ $page ??= '';
     <header class="topbar">
         <button class="icon-btn topbar__menu" type="button" data-sidebar-open aria-label="Open menu" aria-controls="sidebar"><?= icon('menu') ?></button>
         <div class="topbar__title">
-            <?php if (!empty($eyebrow)): ?><span class="eyebrow"><?= e($eyebrow) ?></span><?php endif; ?>
+            <span class="eyebrow"><?= e(!empty($eyebrow) ? $eyebrow : ($adminArea ? 'Admin panel' : 'Member area')) ?></span>
             <h1><?= e($title ?? '') ?></h1>
         </div>
         <div class="topbar__wallets">
@@ -82,7 +78,7 @@ $page ??= '';
                 <span class="pill__dot pill__dot--pink"></span><span class="pill__label">Ad credits</span><b><?= number_format((int) $me['ad_credits']) ?></b>
             </a>
         </div>
-        <a class="btn btn--primary topbar__cta" href="<?= e(url('buy.php')) ?>"><?= icon('plus') ?><span>Buy bubbles</span></a>
+        <a class="btn btn--primary topbar__cta" href="<?= e(url('buy.php')) ?>" aria-label="Buy bubbles"><span>Buy bubbles</span><span class="btn__glyph" aria-hidden="true">↗</span></a>
     </header>
 
     <main class="content" id="content">

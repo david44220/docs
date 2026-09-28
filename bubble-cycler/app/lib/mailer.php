@@ -211,22 +211,27 @@ function smtp_send(string $from, string $to, string $data): void
     }
 }
 
-/** Branded HTML email (inline styles for mail clients). */
+/**
+ * Branded HTML email in the Cosmic Loop style (inline styles for mail
+ * clients): deep-space background, square hairline panel, violet pill button.
+ */
 function mail_html(string $title, string $bodyHtml, ?string $buttonUrl = null, ?string $buttonLabel = null): string
 {
-    $site = e(site_name());
+    $brand = landing_brand(site_name());
+    $font = "font-family:Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
     $button = $buttonUrl !== null
-        ? '<p style="margin:28px 0 8px"><a href="' . e($buttonUrl) . '" style="display:inline-block;padding:13px 22px;border-radius:12px;'
-          . 'background:linear-gradient(120deg,#c4b5fd,#93c5fd 45%,#67e8f9);color:#120c2b;font-weight:700;text-decoration:none">'
-          . e((string) $buttonLabel) . '</a></p>'
+        ? '<p style="margin:30px 0 6px"><a href="' . e($buttonUrl) . '" style="display:inline-block;padding:15px 24px;border-radius:999px;'
+          . 'background:#dfaaff;color:#081018;font-size:13px;font-weight:600;letter-spacing:.02em;text-decoration:none">'
+          . e((string) $buttonLabel) . ' &#8599;</a></p>'
         : '';
-    return '<!doctype html><html><body style="margin:0;padding:0;background:#07080f">'
-        . '<div style="max-width:560px;margin:0 auto;padding:32px 20px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8eaff">'
-        . '<p style="font-size:18px;font-weight:700;margin:0 0 24px;color:#ffffff">' . $site . '</p>'
-        . '<div style="background:#12142a;border:1px solid #262a4a;border-radius:18px;padding:28px">'
-        . '<h1 style="font-size:20px;margin:0 0 14px;color:#ffffff">' . e($title) . '</h1>'
-        . '<div style="font-size:15px;line-height:1.6;color:#c8cbe6">' . $bodyHtml . '</div>' . $button
-        . '</div><p style="font-size:12px;color:#7b80a8;margin:20px 4px 0">' . e(setting('disclaimer')) . '</p>'
+    return '<!doctype html><html><body style="margin:0;padding:0;background:#07090f">'
+        . '<div style="max-width:560px;margin:0 auto;padding:36px 20px;' . $font . ';color:#f7f5f0">'
+        . '<p style="font-size:17px;margin:0 0 26px;color:#f7f5f0;letter-spacing:-.03em"><strong style="font-weight:700">' . e($brand['name'])
+        . '</strong><span style="font-weight:400">' . e($brand['light']) . '</span></p>'
+        . '<div style="background:#0e0c16;border:1px solid #332a40;padding:30px 28px">'
+        . '<h1 style="font-size:26px;line-height:1.15;font-weight:600;letter-spacing:-.04em;margin:0 0 16px;color:#f7f5f0">' . e($title) . '</h1>'
+        . '<div style="font-size:15px;line-height:1.65;color:#b8bdc9">' . $bodyHtml . '</div>' . $button
+        . '</div><p style="font-size:12px;line-height:1.6;color:#858a9b;margin:20px 2px 0">' . e(setting('disclaimer')) . '</p>'
         . '</div></body></html>';
 }
 

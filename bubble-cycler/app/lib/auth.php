@@ -13,7 +13,7 @@ const TWO_FACTOR_WINDOW_SECONDS = 300; // time allowed to type the code after th
 const COMMON_PASSWORDS = [
     '12345678', '123456789', '1234567890', 'password', 'password1', 'password123', 'qwertyuiop', 'qwerty123',
     'iloveyou', '11111111', '00000000', '12341234', 'abcd1234', 'azertyuiop', 'motdepasse', 'letmein123',
-    'welcome1', 'admin123', 'administrator', 'bubblecycle', 'sunshine1', '1q2w3e4r', 'princess1', 'football1',
+    'welcome1', 'admin123', 'administrator', 'bubblecycle', 'bubblecycler', 'sunshine1', '1q2w3e4r', 'princess1', 'football1',
 ];
 
 /** Changes whenever the password changes, which signs out other sessions. */

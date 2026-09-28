@@ -37,6 +37,7 @@ require APP_DIR . '/lib/ui.php';
 require APP_DIR . '/lib/admin.php';
 require APP_DIR . '/lib/mailer.php';
 require APP_DIR . '/lib/export.php';
+require APP_DIR . '/lib/landing.php';
 require APP_DIR . '/lib/migrations.php';
 
 set_exception_handler('handle_exception');

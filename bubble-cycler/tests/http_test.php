@@ -253,6 +253,27 @@ check($anon->status === 302 && str_contains($anon->location, 'login.php'), 'admi
 $anon->get('forgot.php');
 check(str_ends_with($anon->path(), '/login.php'), 'password reset hidden while email is off');
 
+echo "== landing (Cosmic Loop design)\n";
+eq(hash_file('sha256', PUBLIC_DIR . '/assets/css/cosmic.css'), hash_file('sha256', APP_ROOT . '/mockups/cosmic-loop/styles.css'), 'the design stylesheet is the mockup one, byte for byte');
+$fr = (new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Language: fr-FR,fr;q=0.9,en;q=0.8']);
+check($fr->has('<html lang="fr">') && $fr->has('Une autre') && $fr->has('orbite.'), 'landing in French for a French browser');
+$en = (new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Language: en-US,en;q=0.9']);
+check($en->has('<html lang="en">') && $en->has('A different') && $en->has('orbit.'), 'landing in English for an English browser');
+check((new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Language: de-DE'])->has('<html lang="fr">'), 'French for every other browser (the mockup rule)');
+check($en->has('160%') && $fr->has('160 %'), 'target ROI computed from the settings');
+check($en->has('50 advertising credits') && $fr->has('50 crédits publicitaires'), 'ad credits per bubble from the settings');
+check($en->has('assets/css/fonts.css') && $en->has('assets/css/cosmic.css') && $en->has('assets/js/landing.js') && !$en->has('assets/css/app.css'), 'landing loads the design files only');
+check(!$en->has('chatgpt.site') && !$en->has('download=') && !$fr->has('#editions'), 'no links back to the design studio');
+check($en->has('href="/login.php"') && $en->has('href="/register.php"') && $en->has('href="/terms.php"'), 'visitor calls to action lead to sign-in, sign-up and terms');
+$fr->get('index.php?lang=en');
+$langCookie = implode(' ', $fr->headers['set-cookie'] ?? []);
+check($fr->has('<html lang="en">') && str_contains($langCookie, 'bubble_lang=en') && str_contains($langCookie, 'HttpOnly'), 'language switch is remembered in a cookie');
+$fr->send('GET', 'index.php', null, true, ['Accept-Language: fr-FR']);
+check($fr->has('<html lang="en">'), 'the remembered language wins over the browser');
+check($fr->get('index.php?lang=xx')->has('<html lang="en">'), 'an unknown language is ignored');
+$anon->get('login.php');
+check($anon->has('assets/css/cosmic.css') && $anon->has('assets/css/app.css') && $anon->has('img/hero-08.webp'), 'sign-in page uses the Cosmic Loop design');
+
 /* -------------------------------------------------------------------------
  * Registration & sign-in
  * ---------------------------------------------------------------------- */
@@ -295,6 +316,8 @@ check(str_starts_with($alice->url, $base) && str_ends_with($alice->url, '/dashbo
 $alice->logout();
 $alice->login('ALICE@example.com', TEST_PASSWORD, '/deposit.php');
 check(str_ends_with($alice->url, '/deposit.php'), 'email sign-in returns to the requested page');
+$alice->get('index.php');
+check($alice->has('Mon espace') && $alice->has('href="/dashboard.php"') && $alice->has('href="/buy.php"') && !$alice->has('href="/register.php"'), 'landing leads a signed-in member to the account');
 
 /* -------------------------------------------------------------------------
  * Admin two-factor

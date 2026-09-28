@@ -1,15 +1,9 @@
 <?php
+declare(strict_types=1);
+
 require __DIR__ . '/../app/bootstrap.php';
 
 capture_referral();
 
-$pool = pool_state();
-
-render('public/home', [
-    'title'       => site_name(),
-    'pool'        => $pool,
-    'head'        => queue_head($pool),
-    'next'        => queue_next($pool, 7),
-    'members'     => (int) val('SELECT COUNT(*) FROM users'),
-    'expirations' => recent_expirations(5, $pool),
-], 'public');
+// The Cosmic Loop landing is a complete page of its own (no app layout).
+echo view_capture('public/landing', ['page' => landing_page(landing_language(), current_user())]);

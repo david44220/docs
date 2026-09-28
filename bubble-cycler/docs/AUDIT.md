@@ -12,15 +12,55 @@ load test with **20 000 members, 400 000 bubbles and 1 000 000 ledger lines**.
 | PHPStan level 8 (app, pages, CLI, tests) | **0 errors** (about 70 findings before the audit, all fixed) |
 | `tests/cycler_test.php` — core logic, 2FA, resets, rate limits, migrations | **279 / 279** |
 | `tests/stress_test.php` — 13 parallel processes (≈570 purchases, ≈1 400 payouts per run) | **15 / 15**, 0 errors |
-| `tests/http_test.php` — every page and form through a real web server | **176 / 176**, no PHP warnings |
+| `tests/http_test.php` — every page and form through a real web server | **190 / 190**, no PHP warnings |
 | `tests/smtp_test.php` — SMTP client against a fake server (plain + STARTTLS) | **15 / 15** |
-| Browser tests (Chromium): countdown, calculators, copy, QR code, 2FA sign-in, phone layout | **38 / 38**, no console errors or CSP violations |
+| Browser tests (Chromium): countdown, calculators, copy, QR code, 2FA sign-in, landing language switch, phone layout | **39 / 39**, no console errors or CSP violations |
+| Landing page vs the Cosmic Loop mockup (DOM signature, French and English) | **0 differences**; stylesheet byte-identical |
 | Web installer on an empty database, then locked | pass |
 | Upgrade of a version-1 database | schema identical to a fresh install |
 
 Every suite also checks, after each scenario, that **no money was created or lost**, that **every ledger line carries
 the right running balance**, that bubbles expired **strictly in queue order** and that each expired bubble was
 **paid exactly once**.
+
+---
+
+## Design integration — Cosmic Loop (edition 08)
+
+The design package is frozen in `mockups/cosmic-loop/` and never edited. The landing page
+(`app/views/public/landing.php`) renders, on the server, exactly the markup the mockup's script builds in the browser;
+the mockup's stylesheet is served unchanged (`public/assets/css/cosmic.css`).
+
+| Check | Result |
+|---|---|
+| DOM signature (every element, id, class and text) of the template rendered with the mockup's texts (`fixtures/landing.php`) vs the mockup, French and English | **0 differences** |
+| Attributes (links, `aria-*`, image attributes) with the same texts | identical |
+| Pixels, template + assets vs mockup, 1440 × 900 and 390 × 844, full page, both languages (same font) | **0.00 %** different |
+| `cosmic.css` vs the mockup's `styles.css` | byte-identical (checked by `tests/http_test.php`) |
+| Browser console on the live landing, both languages | no errors, no CSP violations |
+
+**Deliberate differences on the live page** (the structure and classes stay identical):
+
+- *Links*: the mockup points at the design studio (edition gallery, "download this edition", "back to editions").
+  The live page links to sign-in, account creation, the member area (for signed-in members) and the terms.
+- *Accuracy*: two mockup sentences describe another product ("a defined term", "returns depend on advertising
+  revenue"). Here bubbles have no fixed term — they wait in a first-in-first-out queue — and the pool is funded only by
+  new purchases. Those sentences say what the app does; the rest of the copy is the mockup's, word for word.
+- *Numbers from the settings*: target ROI (160 %), expiry amount and ad credits per bubble follow the admin settings.
+- *Language*: rendered on the server from `?lang=` (remembered in an HttpOnly cookie), then the cookie, then the
+  browser language — the mockup's rule (English for English browsers, French otherwise). The mockup's `app.js` is
+  replaced by a small script for the language button; everything else is rendered on the server and works without
+  JavaScript.
+- *Head*: icons, web-app manifest, share tags, font preload, and `fonts.css` (self-hosted Inter) before the mockup's
+  stylesheet — the mockup relied on locally installed fonts.
+
+**The rest of the app** (sign-in pages, member area, admin panel, terms, privacy, errors, installer, emails, icons and
+share image) now follows the same art direction through `public/assets/css/app.css`, loaded after the mockup's
+stylesheet: Inter only, tight negative tracking on headlines, micro uppercase labels with the accent rule, pill
+buttons with arrow glyphs, square hairline panels with 01/02/03 indexes and 34 px accent rules, circles for icons, the
+violet accent on deep space, and the nebula artwork on the sign-in, legal, error and install pages. Colors keep WCAG
+AA contrast (tertiary text ≥ 5.5 : 1); chart colors (violet, gold, blue) were validated for color-vision deficiency
+(worst adjacent ΔE 27). The old Sora font, glass effects and ambient bubbles were removed.
 
 ---
 
@@ -85,7 +125,7 @@ deposits, 20 000 withdrawals, 200 000 ad views. MariaDB 10.11, PHP 8.4, single s
 
 | Page / operation | Before | After |
 |---|---|---|
-| Home page (public, most visited) | 365 ms | **5 ms** |
+| Home page (public, most visited) | 365 ms | **5 ms** — the Cosmic Loop landing now reads only the settings: ~2 ms |
 | Admin dashboard | 718 ms | **149 ms** |
 | Admin ledger, page 1 | 2 654 ms | **109 ms** |
 | Admin ledger, page 20 000 | 3 654 ms | **397 ms** |

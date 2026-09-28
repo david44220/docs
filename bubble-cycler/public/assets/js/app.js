@@ -1,5 +1,5 @@
 /*!
- * BubbleCycle — progressive enhancements. Every page works without JS;
+ * Bubble Cycler — progressive enhancements. Every page works without JS;
  * the server enforces every rule (ad timer included).
  */
 (() => {
@@ -32,14 +32,6 @@
   $$('[data-sidebar-open]').forEach((b) => b.addEventListener('click', () => document.body.classList.add('nav-open')));
   $$('[data-sidebar-close]').forEach((b) => b.addEventListener('click', () => document.body.classList.remove('nav-open')));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.body.classList.remove('nav-open'); });
-
-  /* ---------- Sticky public header ----------------------------------------- */
-  const siteHeader = $('[data-site-header]');
-  if (siteHeader) {
-    const onScroll = () => siteHeader.classList.toggle('is-scrolled', window.scrollY > 8);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-  }
 
   /* ---------- Toasts -------------------------------------------------------- */
   $$('.toast').forEach((toast, i) => {

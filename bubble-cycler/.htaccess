@@ -5,7 +5,7 @@ Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(app|bin|database|docs|storage|tests)(/.*)?$ - [F,L]
+    RewriteRule ^(app|bin|database|docs|fixtures|mockups|storage|tests|tools)(/.*)?$ - [F,L]
     RewriteRule ^(\.git|\.env|README\.md) - [F,L]
     RewriteCond %{REQUEST_URI} !/public/
     RewriteRule ^(.*)$ public/$1 [L]

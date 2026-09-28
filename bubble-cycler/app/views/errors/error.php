@@ -20,18 +20,17 @@ $debug ??= '';
 <head>
 <?= partial('head', ['title' => $heading]) ?>
 </head>
-<body class="error-page">
-<?= partial('ambient') ?>
+<body class="error-page cosmic-app theme-violet">
+<div class="backdrop" aria-hidden="true"><img src="<?= e(asset('img/hero-08.webp')) ?>" alt=""></div>
 <main class="error">
-    <div class="error__bubble">
-        <?= bubble_html(['size' => 'xl', 'state' => 'idle', 'label' => (string) $code]) ?>
-    </div>
+    <p class="eyebrow"><span class="eyebrow__line"></span><?= e(site_name()) ?> <span class="eyebrow__dot">·</span> <?= (int) $code ?></p>
+    <p class="error__code" aria-hidden="true"><?= (int) $code ?></p>
     <h1><?= e($heading) ?></h1>
     <p><?= e($message !== '' ? $message : $fallback) ?></p>
     <?php if ($debug !== ''): ?><pre class="error__debug"><?= e($debug) ?></pre><?php endif; ?>
     <div class="error__actions">
-        <a class="btn btn--primary" href="<?= e(url('index.php')) ?>"><?= icon('home') ?> Home</a>
-        <?php if ($code !== 503): ?><a class="btn btn--secondary" href="<?= e(url('dashboard.php')) ?>" data-back><?= icon('arrow-left') ?> Go back</a><?php endif; ?>
+        <a class="btn btn--primary btn--lg" href="<?= e(url('index.php')) ?>">Home<span class="btn__glyph" aria-hidden="true">↗</span></a>
+        <?php if ($code !== 503): ?><a class="btn btn--secondary btn--lg" href="<?= e(url('dashboard.php')) ?>" data-back><?= icon('arrow-left') ?> Go back</a><?php endif; ?>
     </div>
 </main>
 </body>

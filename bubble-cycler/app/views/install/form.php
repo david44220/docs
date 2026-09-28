@@ -10,12 +10,12 @@
 <head>
 <?= partial('head', ['title' => 'Install']) ?>
 </head>
-<body class="install-page">
-<?= partial('ambient') ?>
+<body class="install-page cosmic-app theme-violet">
+<div class="backdrop" aria-hidden="true"><img src="<?= e(asset('img/hero-08.webp')) ?>" alt=""></div>
 <main class="install">
     <header class="install__head">
-        <img class="brand__mark" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="48" height="48">
-        <h1>Install your bubble cycler</h1>
+        <p class="eyebrow"><span class="eyebrow__line"></span>Installation <span class="eyebrow__dot">·</span> 3 steps</p>
+        <h1>Install your <span class="text-iris">bubble cycler.</span></h1>
         <p class="muted">Three minutes: connect MySQL, name your site, create the admin account.</p>
     </header>
 
@@ -62,7 +62,7 @@
             <label class="field"><span class="field__label">Password</span><input class="input" type="password" name="admin_password" minlength="8" autocomplete="new-password" required></label>
         </div>
 
-        <button class="btn btn--primary btn--lg btn--block" type="submit"<?= $ready ? '' : ' disabled' ?>><?= icon('zap') ?> Install</button>
+        <button class="btn btn--primary btn--lg btn--block" type="submit"<?= $ready ? '' : ' disabled' ?>>Install<span class="btn__glyph" aria-hidden="true">↗</span></button>
     </form>
 </main>
 </body>

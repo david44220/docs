@@ -1,15 +1,22 @@
-# BubbleCycle — bubble game cycler with a built-in ad network
+# Bubble Cycler — bubble game cycler with a built-in ad network
 
 A complete bubble cycler written in **pure PHP 8** (no framework, no Composer, no build step) on MySQL / MariaDB.
 Members buy **$1.00 bubbles**, **$0.80** of each purchase goes into a first-in-first-out pool, and every bubble
 **expires at $1.60**. Each bubble also comes with **advertising credits**, and a **sponsored message plays before every
 purchase**. Deposits and withdrawals use **manual payment methods that you manage from the admin panel**.
 
+The interface is the **Cosmic Loop design (edition 08)**: the landing page reproduces the mockup element for element,
+in French and English, and the same art direction runs through the sign-in pages, the member area and the admin panel.
+
 ![Landing page](docs/screenshots/landing.jpg)
 
 | Member dashboard | Buy page with the ad gate |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.jpg) | ![Buy](docs/screenshots/buy.jpg) |
+
+| Sign in | Phone (390 px) |
+|---|---|
+| ![Sign in](docs/screenshots/signin.jpg) | ![Phone](docs/screenshots/mobile.jpg) |
 
 | Admin overview | Manual payment methods |
 |---|---|
@@ -52,8 +59,13 @@ purchase**. Deposits and withdrawals use **manual payment methods that you manag
 - **CSV exports** of deposits, withdrawals, the ledger and members (safe to open in Excel).
 - **Audit log** of every admin action.
 
-**Design** — dark "glass" interface with iridescent accents, CSS-only liquid-filled bubbles, self-hosted Inter and
-Sora fonts, responsive down to 320 px, respects `prefers-reduced-motion`.
+**Design** — the Cosmic Loop design system (edition 08): deep-space background, violet accent, the nebula artwork,
+Inter only with large, tightly tracked headlines, micro uppercase labels led by an accent rule, pill buttons with arrow
+glyphs, square hairline panels and circles for icons. The landing page (French and English, chosen from `?lang=`, a
+cookie, then the browser language) is the mockup's markup and stylesheet unchanged; the sign-in pages, member area,
+admin panel, legal, error and install pages extend the same rules (`public/assets/css/app.css`). Bubbles are CSS glass
+spheres that fill with violet liquid and turn gold when they expire. Self-hosted font, responsive down to 320 px,
+respects `prefers-reduced-motion`.
 
 ---
 
@@ -86,8 +98,8 @@ order. Bubbles are paid in batches: in the load test a pool top-up that expired 
 check that **every cent is accounted for** after each scenario.
 
 > **Be honest with your members.** Bubbles are paid only from new purchases (and any amount you add to the pool).
-> If purchases slow down, bubbles wait longer and some may never expire. The default disclaimer, FAQ and terms say
-> this plainly — keep them. Schemes where earlier participants are paid from later participants' money are regulated
+> If purchases slow down, bubbles wait longer and some may never expire. The default disclaimer, landing page and
+> terms say this plainly — keep them. Schemes where earlier participants are paid from later participants' money are regulated
 > or prohibited in many countries: check the law where you operate before accepting real money.
 
 ---
@@ -259,14 +271,19 @@ bubble-cycler/
 │   │   ├── export.php         streamed CSV exports
 │   │   ├── migrations.php     database versions and upgrades
 │   │   ├── auth.php, admin.php, settings.php, money.php, db.php, ui.php, uploads.php, helpers.php
+│   │   ├── landing.php        landing page data (language, copy, settings) for the Cosmic Loop template
 │   │   └── installer.php
-│   └── views/                 layouts, partials and page templates
+│   ├── lang/landing.php       landing copy, French and English
+│   └── views/                 layouts, partials and page templates (public/landing.php = the mockup's markup)
 ├── bin/admin.php              command-line tools for the operator
 ├── database/schema.sql        tables (run automatically by the installer)
 ├── docs/AUDIT.md              production-readiness audit: findings, fixes, test and load results
+├── fixtures/landing.php       the mockup's exact texts, to check the landing template against it
+├── mockups/                   the Cosmic Loop design package, frozen (never edited), and its rendered DOM
 ├── public/                    web root: one PHP file per page, admin/, assets/
 ├── storage/                   sessions, logs and uploaded payment screenshots (private)
-└── tests/                     CLI test suites
+├── tests/                     CLI test suites
+└── tools/                     landing DOM check (dom-sig.php, render-landing.php)
 ```
 
 Pages follow the same pattern: `public/<page>.php` handles the request and calls
@@ -301,8 +318,16 @@ The suites run against a throw-away database whose name **must end with `_test`*
 export BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret
 php tests/cycler_test.php   # 279 checks: FIFO maths, batch payouts, ad gate, payments, campaigns, 2FA, resets, migrations
 php tests/stress_test.php   # 13 parallel processes, then every accounting invariant
-php tests/http_test.php     # 176 checks: every page and form through a real web server (needs the curl extension)
+php tests/http_test.php     # 190 checks: every page and form through a real web server (needs the curl extension)
 php tests/smtp_test.php     # SMTP client against a local fake server: STARTTLS, AUTH, dot-stuffing, errors
+```
+
+The landing template is checked against the frozen mockup: rendered with the mockup's texts (`fixtures/landing.php`),
+its DOM must match the mockup's exactly — every element, class and text.
+
+```bash
+php tools/render-landing.php fr > /tmp/landing.html
+diff <(php tools/dom-sig.php mockups/landing.fr.html) <(php tools/dom-sig.php /tmp/landing.html) && echo "0 differences"
 ```
 
 After every scenario the suites verify that no money was created or lost, that every ledger line carries the right
@@ -315,7 +340,9 @@ running balance, that the queue stayed in strict order and that each expired bub
 Script de « bubble cycler » complet en **PHP pur** + MySQL : bulle à 1 $, 0,80 $ versés dans un pool FIFO, chaque
 bulle expire à 1,60 $, crédits publicitaires offerts à chaque achat, publicité obligatoire (10 s, vérifiée côté serveur)
 avant chaque achat, méthodes de dépôt/retrait manuelles gérées depuis le panneau admin, validation des dépôts avec
-capture d'écran, design premium sombre. Installation : pointer la racine web sur `public/`, créer une base MySQL,
+capture d'écran, design « Cosmic Loop » (édition 08) : page d'accueil en français et en anglais reproduite à
+l'identique de la maquette, même direction artistique pour la connexion, l'espace membre, l'admin, les pages légales et
+d'erreur. Installation : pointer la racine web sur `public/`, créer une base MySQL,
 ouvrir `/install.php`. Pensez à activer vos méthodes de paiement réelles et à vérifier la législation de votre pays.
 
 Prêt pour la production : double authentification (application d'authentification + codes de secours, obligatoire
@@ -323,5 +350,4 @@ pour les admins), réinitialisation du mot de passe par email (SMTP configurable
 test), notifications de paiement, exports CSV, limites anti-abus, migrations automatiques de la base, outil en ligne
 de commande `php bin/admin.php` (`check`, `migrate`, `reset-2fa`…) et rapport d'audit complet dans `docs/AUDIT.md`.
 
-Fonts: [Inter](https://github.com/rsms/inter) and [Sora](https://github.com/sora-xor/sora-font), SIL Open Font License
-(see `public/assets/fonts/`).
+Font: [Inter](https://github.com/rsms/inter), SIL Open Font License (see `public/assets/fonts/`).

@@ -11,8 +11,8 @@ echo json_encode([
     'start_url'        => url('dashboard.php'),
     'scope'            => url(''),
     'display'          => 'standalone',
-    'background_color' => '#06070e',
-    'theme_color'      => '#07080f',
+    'background_color' => '#07090f',
+    'theme_color'      => '#07090f',
     'icons'            => [
         ['src' => asset('img/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png'],
         ['src' => asset('img/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png'],

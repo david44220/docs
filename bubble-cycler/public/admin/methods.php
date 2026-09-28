@@ -76,7 +76,7 @@ if ($form === null && $editId > 0 && ($method = payment_method($editId, $type, f
     ];
 }
 $form ??= [
-    'id' => 0, 'name' => '', 'currency' => 'USD', 'logo_url' => '', 'color' => '#8b5cf6',
+    'id' => 0, 'name' => '', 'currency' => 'USD', 'logo_url' => '', 'color' => '#dfaaff',
     'account_label' => $type === 'deposit' ? 'Send to' : 'Your account / wallet address',
     'account_value' => '', 'instructions' => '', 'min_amount' => $type === 'deposit' ? '5.00' : '2.00', 'max_amount' => '',
     'fee_fixed' => '0.00', 'fee_percent' => '0', 'require_proof' => '0', 'status' => 'active', 'sort_order' => '0',

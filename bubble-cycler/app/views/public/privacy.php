@@ -4,14 +4,16 @@ $custom = setting('privacy_text');
 $site = site_name();
 $contact = setting('support_email');
 ?>
-<section class="section section--narrow">
-    <header class="section__head section__head--left">
-        <span class="eyebrow">Legal</span>
-        <h1>Privacy policy</h1>
-        <p class="muted">What <?= e($site) ?> stores about you, why, and how to reach us.</p>
-    </header>
+<section class="section doc">
+    <aside class="doc__aside">
+        <dl class="dl dl--rows doc__facts">
+            <div><dt>Cookies</dt><dd>Session and referral only</dd></div>
+            <div><dt>Your data</dt><dd>Never sold</dd></div>
+            <div><dt>Contact</dt><dd><?= $contact !== '' ? '<a href="mailto:' . e($contact) . '">' . e($contact) . '</a>' : 'Support, from your account' ?></dd></div>
+        </dl>
+    </aside>
 
-    <article class="prose glass">
+    <article class="prose">
         <?php if ($custom !== ''): ?>
             <?php foreach (preg_split('/\R{2,}/', $custom) as $paragraph): ?>
                 <p><?= nl2br(e(trim($paragraph))) ?></p>

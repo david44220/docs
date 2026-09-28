@@ -1,6 +1,7 @@
 <div class="auth__card">
     <header class="auth__head">
-        <h1>Create your account</h1>
+        <p class="eyebrow">New account</p>
+        <h1>Create your account.</h1>
         <p class="muted">Blow your first bubble in minutes.</p>
     </header>
 
@@ -41,7 +42,7 @@
                 <input type="checkbox" name="terms" value="1" required>
                 <span>I have read the <a href="<?= e(url('terms.php')) ?>" target="_blank" rel="noopener">terms &amp; risk disclosure</a> and the <a href="<?= e(url('privacy.php')) ?>" target="_blank" rel="noopener">privacy policy</a>, and I understand that bubble payouts are not guaranteed.</span>
             </label>
-            <button class="btn btn--primary btn--lg btn--block" type="submit"><?= icon('sparkles') ?> Create account</button>
+            <button class="btn btn--primary btn--lg btn--block" type="submit">Create account<span class="btn__glyph" aria-hidden="true">↗</span></button>
         </form>
         <p class="auth__switch">Already a member? <a href="<?= e(url('login.php')) ?>">Sign in</a></p>
     <?php endif; ?>

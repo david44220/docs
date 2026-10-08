@@ -320,6 +320,7 @@ php tests/cycler_test.php   # 279 checks: FIFO maths, batch payouts, ad gate, pa
 php tests/stress_test.php   # 13 parallel processes, then every accounting invariant
 php tests/http_test.php     # 190 checks: every page and form through a real web server (needs the curl extension)
 php tests/smtp_test.php     # SMTP client against a local fake server: STARTTLS, AUTH, dot-stuffing, errors
+php tests/load_test.php     # HTTP load: members buy, deposit and withdraw while an admin approves (args: members seconds)
 ```
 
 The landing template is checked against the frozen mockup: rendered with the mockup's texts (`fixtures/landing.php`),

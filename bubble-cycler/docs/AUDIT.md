@@ -14,6 +14,9 @@ load test with **20 000 members, 400 000 bubbles and 1 000 000 ledger lines**.
 | `tests/stress_test.php` — 13 parallel processes (≈570 purchases, ≈1 400 payouts per run) | **15 / 15**, 0 errors |
 | `tests/http_test.php` — every page and form through a real web server | **190 / 190**, no PHP warnings |
 | `tests/smtp_test.php` — SMTP client against a fake server (plain + STARTTLS) | **15 / 15** |
+| `tests/load_test.php` — HTTP load: 30 members + admin + visitors on a real web server for 45 s | **32 / 32** — 21 000 requests, 0 errors, 1 057 purchases, invariants hold |
+| Same load test, spike of 80 simultaneous members | **32 / 32** — 14 258 requests, 0 errors, 1 730 purchases |
+| Responsive audit (Chromium): 41 page variants × 14 widths (320–1920 px), mobile menu, landscape phones, interactive states | **0 issues**: no sideways scroll, nothing off-screen, no overlapping text or controls, no clipped text, tap targets ≥ 24 px |
 | Browser tests (Chromium): countdown, calculators, copy, QR code, 2FA sign-in, landing language switch, phone layout | **39 / 39**, no console errors or CSP violations |
 | Landing page vs the Cosmic Loop mockup (DOM signature, French and English) | **0 differences**; stylesheet byte-identical |
 | Web installer on an empty database, then locked | pass |
@@ -142,6 +145,46 @@ matching row. Fixed with FIFO id ranges (the latest expired bubbles are the ids 
 `STRAIGHT_JOIN` where the main table must drive, and "deferred joins" (page through ids on an index, then fetch 40
 rows). Queue positions stay O(1) thanks to the stored running targets.
 
+### Concurrent HTTP load (`tests/load_test.php`)
+
+A real web server (PHP's built-in server, 8 workers, 4 CPU cores — production would use PHP-FPM) on a fresh test
+database. Each simulated member signs in and, in a loop, buys 1–3 bubbles through the buy form, browses member pages,
+declares deposits, requests withdrawals and signs out and in again. An admin approves deposits, pays withdrawals and
+tops up the pool at the same time, and visitors hit the public pages with 16 parallel connections.
+
+| Run | Requests | Throughput | Purchases | Errors | Purchase latency p50 / p95 |
+|---|---|---|---|---|---|
+| 30 members, 45 s | 21 023 | 460 req/s | 1 057 | **0** | 93 ms / 183 ms |
+| 80 members, 40 s (spike) | 14 258 | 343 req/s | 1 730 | **0** | 329 ms / 607 ms |
+
+After each run: no 5xx, no failed CSRF check, no PHP warning, no application error, and every accounting invariant
+holds (money in = money held, ledger = wallets, strict FIFO order, one payout per expired bubble). Sign-in is the
+slowest step under load by design (password hashing is deliberately expensive).
+
+---
+
+## Responsive and overlap audit
+
+Every screen was rendered in Chromium at 320, 360, 390, 414, 480, 600, 768, 900, 1024, 1100, 1280, 1366, 1440 and
+1920 px (visitor, member, advertiser and admin pages: 41 variants), with the mobile menu open, in landscape phone
+and tablet sizes, and in interactive states (sign-in and sign-up errors, deposit error, ad countdown finished, a real
+purchase with its notices, the "bubbles expired" banner). A script measured, on each render: sideways scrolling,
+content beyond the screen edges, overlapping text runs and controls, text clipped without an ellipsis, labels
+overflowing their buttons, and tap targets under 24 px (WCAG 2.5.8). The detector was verified on planted defects.
+
+Fixed during the audit:
+
+| Screen | Problem | Fix |
+|---|---|---|
+| My bubbles, 320 px | The status badge ran out of the card (6 px sideways scroll). | Smaller bubble and tighter card on phones; the title row wraps. |
+| Admin settings, ≤ 414 px | The "before going live" warning (long config values) pushed the page 160 px wide. | Alert text breaks long values. |
+| Admin settings, phones | The floating save bar took a third of the screen. | Compact bar: full-width button only. |
+| Withdrawal / campaign review, 320 px | Status badge and close button squeezed the title into a narrow column. | They move above the title on small screens. |
+| Two-factor setup, 320 px | "Turn on two-factor authentication" overflowed its button. | Long button labels wrap on phones. |
+| Notices (toasts), all sizes | Floating notices covered the top of the page on phones. | Notices now sit in the page flow above the content and fold away smoothly when dismissed. |
+| "Bubbles expired" banner, phones | The headline was squeezed between the bubble and the button, one word per line. | The button moves under the text; the expired bubble is drawn full and gold. |
+| Admin chart, 1280 px | Day labels ("Sep 25") were cut. | The month is named only on the first day and when it changes; labels thin out with the chart width. |
+
 ---
 
 ## Economics of the default settings
@@ -186,6 +229,7 @@ where you and your members are before accepting real money.**
 ```bash
 export BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret
 php tests/cycler_test.php && php tests/stress_test.php && php tests/http_test.php && php tests/smtp_test.php
+php tests/load_test.php 30 45   # members, seconds
 php bin/admin.php check
 ```
 
@@ -193,8 +237,10 @@ php bin/admin.php check
 
 ## Résumé (FR)
 
-Audit complet avant mise en production : analyse statique (PHPStan niveau 8 : 0 erreur), 5 suites de tests
-automatiques (279 + 15 + 176 + 15 vérifications), tests navigateur (38), test de charge avec 20 000 membres,
+Audit complet avant mise en production : analyse statique (PHPStan niveau 8 : 0 erreur), 6 suites de tests
+automatiques (279 + 15 + 190 + 15 + 32 vérifications), tests navigateur (39), audit responsive de chaque écran sur
+14 largeurs (320 à 1920 px : aucun débordement, aucun chevauchement), test de charge HTTP (jusqu'à 80 membres
+simultanés : 0 erreur, comptabilité intacte), test de charge avec 20 000 membres,
 400 000 bulles et 1 million de lignes de grand livre. Corrigés : redirection ouverte après connexion, double achat
 si le formulaire est renvoyé, paiement du pool bulle par bulle (désormais par lots : 20 000 bulles en 2,9 s au lieu
 d'environ 28 s), fuite d'information par le temps de réponse à la connexion, sessions non isolées, pages lentes sur

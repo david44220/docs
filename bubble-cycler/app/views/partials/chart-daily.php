@@ -54,8 +54,9 @@ $totalExpired = array_sum(array_column($series, 'expired'));
             </div>
         </div>
         <div class="chart__x" aria-hidden="true">
-            <?php foreach ($series as $i => $point): ?>
-                <span class="<?= $i % 2 === 1 ? 'is-odd' : '' ?>"><span class="chart__month"><?= e(fmt_date($point['day'] . ' 12:00:00', 'M')) ?> </span><?= e(fmt_date($point['day'] . ' 12:00:00', 'j')) ?></span>
+            <?php foreach ($series as $i => $point): $noon = $point['day'] . ' 12:00:00'; ?>
+                <?php /* The month is named on the first day and when it changes: "Sep 28 · 29 · 30 · Oct 1 · 2". */ ?>
+                <span class="<?= $i % 2 === 1 ? 'is-odd' : '' ?>"><?php if ($i === 0 || fmt_date($noon, 'j') === '1'): ?><span class="chart__month"><?= e(fmt_date($noon, 'M')) ?> </span><?php endif; ?><?= e(fmt_date($noon, 'j')) ?></span>
             <?php endforeach; ?>
         </div>
     </div>

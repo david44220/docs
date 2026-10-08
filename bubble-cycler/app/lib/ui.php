@@ -90,7 +90,8 @@ function bubble_html(array $o = []): string
 {
     $size = $o['size'] ?? 'md';
     $state = $o['state'] ?? 'idle';
-    $fill = max(0.0, min(100.0, (float) ($o['fill'] ?? 0)));
+    // An expired bubble received its whole target: it is always drawn full (gold).
+    $fill = $state === 'expired' ? 100.0 : max(0.0, min(100.0, (float) ($o['fill'] ?? 0)));
     $rise = max(0.0, min(100.0, (float) ($o['rise'] ?? 0)));
     $classes = ['bubble', 'bubble--' . $size, 'is-' . $state];
     if (!empty($o['mine'])) {

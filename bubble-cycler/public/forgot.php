@@ -5,7 +5,7 @@ if (current_user() !== null) {
     redirect(url('account.php'));
 }
 if (!mail_enabled()) {
-    flash('info', 'Password reset by email is not available. Please contact support.');
+    flash('info', t('Password reset by email is not available. Please contact support.'));
     redirect(url('login.php'));
 }
 
@@ -22,4 +22,4 @@ if (is_post()) {
     }
 }
 
-render('auth/forgot', ['title' => 'Reset your password', 'error' => $error, 'sent' => $sent, 'email' => $email], 'auth');
+render('auth/forgot', ['title' => t('Reset your password'), 'error' => $error, 'sent' => $sent, 'email' => $email], 'auth');

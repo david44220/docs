@@ -7,7 +7,7 @@ require_admin();
 $deposit = row('SELECT proof_file FROM deposits WHERE id = ?', [query_int('id')]);
 $path = proof_path($deposit['proof_file'] ?? null);
 if ($path === null) {
-    abort(404, 'This proof file does not exist.');
+    abort(404, t('This proof file does not exist.'));
 }
 
 $types = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif'];

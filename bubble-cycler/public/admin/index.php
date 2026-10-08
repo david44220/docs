@@ -4,8 +4,8 @@ require __DIR__ . '/../../app/bootstrap.php';
 $admin = require_admin();
 
 render('admin/dashboard', [
-    'title'      => 'Overview',
-    'eyebrow'    => 'Admin panel',
+    'title'      => t('Overview'),
+    'eyebrow'    => t('Admin panel'),
     'page'       => 'admin',
     'admin_area' => true,
     'stats'      => admin_stats(),

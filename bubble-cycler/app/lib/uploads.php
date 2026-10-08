@@ -38,7 +38,7 @@ function proof_max_bytes(): int
 function proof_max_label(): string
 {
     $mb = proof_max_bytes() / 1024 / 1024;
-    return rtrim(rtrim(number_format($mb, 1), '0'), '.') . ' MB';
+    return t('{n} MB', ['n' => num($mb, fmod($mb, 1.0) === 0.0 ? 0 : 1)]);
 }
 
 function proof_dir(): string
@@ -53,25 +53,25 @@ function store_proof_upload(?array $file): ?string
         return null;
     }
     if (is_array($file['error'])) {
-        throw new AppError('Please attach a single image.');
+        throw new AppError(t('Please attach a single image.'));
     }
     if ($file['error'] !== UPLOAD_ERR_OK) {
         throw new AppError(match ($file['error']) {
-            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The screenshot is too large (' . proof_max_label() . ' maximum).',
-            UPLOAD_ERR_PARTIAL => 'The upload was interrupted. Please try again.',
-            default => 'The screenshot could not be uploaded. Please try again.',
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => t('The screenshot is too large ({max} maximum).', ['max' => proof_max_label()]),
+            UPLOAD_ERR_PARTIAL => t('The upload was interrupted. Please try again.'),
+            default => t('The screenshot could not be uploaded. Please try again.'),
         });
     }
     if ((int) $file['size'] > proof_max_bytes()) {
-        throw new AppError('The screenshot is too large (' . proof_max_label() . ' maximum).');
+        throw new AppError(t('The screenshot is too large ({max} maximum).', ['max' => proof_max_label()]));
     }
     $tmp = (string) $file['tmp_name'];
     if (!is_uploaded_file($tmp)) {
-        throw new AppError('Invalid upload.');
+        throw new AppError(t('Invalid upload.'));
     }
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp) ?: '';
     if (!isset(PROOF_TYPES[$mime]) || @getimagesize($tmp) === false) {
-        throw new AppError('Upload a JPG, PNG, WebP or GIF image.');
+        throw new AppError(t('Upload a JPG, PNG, WebP or GIF image.'));
     }
 
     $dir = proof_dir();

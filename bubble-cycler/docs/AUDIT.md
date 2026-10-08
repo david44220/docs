@@ -10,14 +10,16 @@ load test with **20 000 members, 400 000 bubbles and 1 000 000 ledger lines**.
 | Check | Result |
 |---|---|
 | PHPStan level 8 (app, pages, CLI, tests) | **0 errors** (about 70 findings before the audit, all fixed) |
-| `tests/cycler_test.php` — core logic, 2FA, resets, rate limits, migrations | **279 / 279** |
+| `tests/cycler_test.php` — core logic, 2FA, resets, rate limits, migrations, emails in the member's language | **281 / 281** |
 | `tests/stress_test.php` — 13 parallel processes (≈570 purchases, ≈1 400 payouts per run) | **15 / 15**, 0 errors |
-| `tests/http_test.php` — every page and form through a real web server | **190 / 190**, no PHP warnings |
+| `tests/http_test.php` — every page and form through a real web server, language detection and French pages | **218 / 218**, no PHP warnings |
 | `tests/smtp_test.php` — SMTP client against a fake server (plain + STARTTLS) | **15 / 15** |
 | `tests/load_test.php` — HTTP load: 30 members + admin + visitors on a real web server for 45 s | **32 / 32** — 21 000 requests, 0 errors, 1 057 purchases, invariants hold |
 | Same load test, spike of 80 simultaneous members | **32 / 32** — 14 258 requests, 0 errors, 1 730 purchases |
-| Responsive audit (Chromium): 41 page variants × 14 widths (320–1920 px), mobile menu, landscape phones, interactive states | **0 issues**: no sideways scroll, nothing off-screen, no overlapping text or controls, no clipped text, tap targets ≥ 24 px |
-| Browser tests (Chromium): countdown, calculators, copy, QR code, 2FA sign-in, landing language switch, phone layout | **39 / 39**, no console errors or CSP violations |
+| Responsive audit (Chromium): 41 page variants × 14 widths (320–1920 px), **in English and in French**, mobile menu, landscape phones, interactive states | **0 issues**: no sideways scroll, nothing off-screen, no overlapping text or controls, no clipped text, tap targets ≥ 24 px |
+| Browser tests (Chromium): countdown, calculators, copy, QR code, 2FA sign-in, language switch, French browser, phone layout | **47 / 47**, no console errors or CSP violations |
+| Translations (`tools/i18n-check.php`): every text the app can show, placeholders, untranslated template text | **1 275 / 1 275** translated, 0 problems |
+| Every page rendered in English and French side by side (visitor, member, admin: 50 pages) | no English left in French pages (only names, data and words identical in both languages) |
 | Landing page vs the Cosmic Loop mockup (DOM signature, French and English) | **0 differences**; stylesheet byte-identical |
 | Web installer on an empty database, then locked | pass |
 | Upgrade of a version-1 database | schema identical to a fresh install |
@@ -50,10 +52,10 @@ the mockup's stylesheet is served unchanged (`public/assets/css/cosmic.css`).
   revenue"). Here bubbles have no fixed term — they wait in a first-in-first-out queue — and the pool is funded only by
   new purchases. Those sentences say what the app does; the rest of the copy is the mockup's, word for word.
 - *Numbers from the settings*: target ROI (160 %), expiry amount and ad credits per bubble follow the admin settings.
-- *Language*: rendered on the server from `?lang=` (remembered in an HttpOnly cookie), then the cookie, then the
-  browser language — the mockup's rule (English for English browsers, French otherwise). The mockup's `app.js` is
-  replaced by a small script for the language button; everything else is rendered on the server and works without
-  JavaScript.
+- *Language*: rendered on the server in the app's language (see *Languages* below: English by default, French for
+  France and French browsers). The mockup's rule was "English for English browsers, French otherwise"; the app now
+  defaults to English. The mockup's `app.js` is replaced by a small script for the language button; everything else
+  is rendered on the server and works without JavaScript.
 - *Head*: icons, web-app manifest, share tags, font preload, and `fonts.css` (self-hosted Inter) before the mockup's
   stylesheet — the mockup relied on locally installed fonts.
 
@@ -187,6 +189,31 @@ Fixed during the audit:
 
 ---
 
+## Languages (English / French)
+
+The app is in English by default and fully translated into French. The language comes from, in order: the switch
+(`?lang=`, remembered in an HttpOnly cookie and on the member's account), the cookie, the member's saved language,
+the visitor's country (France and its overseas territories → French; Cloudflare, CloudFront, App Engine and GeoIP
+headers), the browser's `Accept-Language`, then English.
+
+- **Texts**: every view, layout, controller message, validation error, email, CSV heading and browser-script label
+  goes through `t()` / `tn()` (plural rules per language) / `tc()` (French gender agreement, e.g. *bulle expirée*,
+  *campagne refusée*). English is the source text; `app/lang/fr.php` holds 1 275 French texts.
+- **Formats**: dates, numbers, amounts and percentages follow the language on the server and in the browser
+  (`1,60 $`, `1 234`, `12,5 %`, `8 oct. 2026`, narrow no-break spaces as in French typography).
+- **Stored texts** (ledger descriptions, audit log) are written in English and translated when shown, so a member who
+  switches language sees their whole history in the new language.
+- **Emails** are composed in the recipient's language; admin notifications use the admin's.
+- **Operator texts**: the disclaimer, terms and privacy policy each have an optional French version in the settings.
+- **Checks**: `tools/i18n-check.php` extracts every translatable text from the code (literal calls, status and ledger
+  labels, stored-text patterns, CSV headings, browser texts) and fails on a missing translation, a lost
+  `{placeholder}` or untranslated text left in a template. A crawl rendered all 50 pages in both languages and
+  compared them text by text; it found the relative times ("3 days ago") and the installer's starter content
+  untranslated, both fixed. The responsive audit was re-run in French: longer French labels overflowed in three places
+  at 320–360 px (dashboard pool header, payment-method card buttons, the settings test-email button), all fixed.
+
+---
+
 ## Economics of the default settings
 
 This is what the requested design ($1 bubble, $0.80 to the pool, expiry at $1.60) implies. Operators should
@@ -230,6 +257,7 @@ where you and your members are before accepting real money.**
 export BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret
 php tests/cycler_test.php && php tests/stress_test.php && php tests/http_test.php && php tests/smtp_test.php
 php tests/load_test.php 30 45   # members, seconds
+php tools/i18n-check.php        # every text translated into French
 php bin/admin.php check
 ```
 
@@ -238,8 +266,10 @@ php bin/admin.php check
 ## Résumé (FR)
 
 Audit complet avant mise en production : analyse statique (PHPStan niveau 8 : 0 erreur), 6 suites de tests
-automatiques (279 + 15 + 190 + 15 + 32 vérifications), tests navigateur (39), audit responsive de chaque écran sur
-14 largeurs (320 à 1920 px : aucun débordement, aucun chevauchement), test de charge HTTP (jusqu'à 80 membres
+automatiques (281 + 15 + 218 + 15 + 32 vérifications), tests navigateur (47), audit responsive de chaque écran sur
+14 largeurs (320 à 1920 px, en anglais et en français : aucun débordement, aucun chevauchement), application en
+anglais par défaut et entièrement traduite en français (1 275 textes vérifiés par `tools/i18n-check.php`, français
+automatique pour la France et les navigateurs en français), test de charge HTTP (jusqu'à 80 membres
 simultanés : 0 erreur, comptabilité intacte), test de charge avec 20 000 membres,
 400 000 bulles et 1 million de lignes de grand livre. Corrigés : redirection ouverte après connexion, double achat
 si le formulaire est renvoyé, paiement du pool bulle par bulle (désormais par lots : 20 000 bulles en 2,9 s au lieu

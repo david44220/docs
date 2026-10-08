@@ -8,26 +8,27 @@ if (is_post()) {
     $quantity = (int) post('quantity', '1');
     $wallet = post('wallet', 'purchase');
     if (!form_nonce_consume('buy', post('nonce'))) {
-        flash('info', 'This purchase form was already submitted. Check your bubbles below before buying again.');
+        flash('info', t('This purchase form was already submitted. Check your bubbles below before buying again.'));
         redirect(url('bubbles.php'));
     }
     try {
         $result = buy_bubbles($uid, $quantity, $wallet, post('ad_token'));
         $label = $result['quantity'] === 1
-            ? 'Bubble #' . number_format($result['first'])
-            : sprintf('Bubbles #%s–#%s', number_format($result['first']), number_format($result['last']));
-        flash('success', sprintf('%s joined the queue. +%s ad credits added to your account.', $label, number_format($result['credits'])));
+            ? t('Bubble #{id}', ['id' => num($result['first'])])
+            : t('Bubbles #{first}–#{last}', ['first' => num($result['first']), 'last' => num($result['last'])]);
+        flash('success', tn('{label} joined the queue. +{n} ad credit added to your account.', '{label} joined the queue. +{n} ad credits added to your account.', (int) $result['credits'], ['label' => $label]));
 
         $popped = $result['popped'];
         $mine = array_values(array_filter($popped, static fn (array $b): bool => $b['user_id'] === $uid));
         if ($mine !== []) {
-            flash('pop', sprintf(
-                '%s of yours just expired — +%s added to your cash balance!',
-                plural(count($mine), 'bubble'),
-                money(array_sum(array_column($mine, 'target')))
+            flash('pop', tn(
+                '{n} bubble of yours just expired — +{amount} added to your cash balance!',
+                '{n} bubbles of yours just expired — +{amount} added to your cash balance!',
+                count($mine),
+                ['amount' => money(array_sum(array_column($mine, 'target')))]
             ));
         } elseif ($popped !== []) {
-            flash('info', sprintf('Your purchase filled the pool: %s at the front of the queue expired.', plural(count($popped), 'bubble')));
+            flash('info', tn('Your purchase filled the pool: {n} bubble at the front of the queue expired.', 'Your purchase filled the pool: {n} bubbles at the front of the queue expired.', count($popped)));
         }
         redirect(url('bubbles.php', ['new' => $result['purchase_id']]));
     } catch (AppError $e) {
@@ -40,8 +41,8 @@ $pool = pool_state();
 $max = setting_int('max_bubbles_per_purchase');
 
 render('user/buy', [
-    'title'    => 'Buy bubbles',
-    'eyebrow'  => 'Two quick steps',
+    'title'    => t('Buy bubbles'),
+    'eyebrow'  => t('Two quick steps'),
     'page'     => 'buy',
     'user'     => $user,
     'pool'     => $pool,

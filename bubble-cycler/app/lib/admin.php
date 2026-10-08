@@ -5,6 +5,29 @@
  */
 declare(strict_types=1);
 
+/** The label of a setting, as shown on Admin → Settings (for validation messages). */
+function setting_label(string $key): string
+{
+    return match ($key) {
+        'bubble_price'             => t('Bubble price'),
+        'pool_share'               => t('Credited to the pool'),
+        'bubble_target'            => t('Expires at'),
+        'referral_commission'      => t('Referral commission'),
+        'min_withdrawal'           => t('Minimum withdrawal'),
+        'max_bubbles_per_purchase' => t('Max bubbles per purchase'),
+        'max_active_bubbles'       => t('Max active bubbles per member'),
+        'ad_seconds'               => t('Ad duration'),
+        'ad_view_ttl'              => t('Unlock valid for'),
+        'ad_credits_per_bubble'    => t('Ad credits per bubble'),
+        'min_campaign_credits'     => t('Minimum credits per campaign'),
+        'max_pending_deposits'     => t('Pending deposits per member'),
+        'max_pending_withdrawals'  => t('Pending withdrawals per member'),
+        'max_registrations_per_ip' => t('Sign-ups per IP address'),
+        'smtp_port'                => t('SMTP port'),
+        default                    => $key,
+    };
+}
+
 function admin_log(int $adminId, string $action, string $details = ''): void
 {
     insert('admin_logs', [
@@ -97,7 +120,7 @@ function admin_daily_series(int $days = 14): array
 function admin_adjust_balance(int $adminId, int $userId, string $wallet, string $direction, string $amountText, string $note): void
 {
     if (!isset(WALLETS[$wallet])) {
-        throw new AppError('Choose a wallet.');
+        throw new AppError(t('Choose a wallet.'));
     }
     if ($wallet === 'ads') {
         $amount = preg_match('/^\d{1,9}$/', trim($amountText)) ? (int) $amountText : null;
@@ -105,15 +128,15 @@ function admin_adjust_balance(int $adminId, int $userId, string $wallet, string 
         $amount = to_payment_units($amountText);
     }
     if ($amount === null || $amount <= 0) {
-        throw new AppError($wallet === 'ads' ? 'Enter a whole number of credits.' : 'Enter a valid amount.');
+        throw new AppError($wallet === 'ads' ? t('Enter a whole number of credits.') : t('Enter a valid amount.'));
     }
     if (mb_strlen($note) < 3) {
-        throw new AppError('Add a short note explaining the adjustment.');
+        throw new AppError(t('Add a short note explaining the adjustment.'));
     }
     $credit = $direction === 'credit';
     tx(function () use ($adminId, $userId, $wallet, $amount, $note, $credit): void {
         wallet_move($userId, $wallet, $credit ? $amount : -$amount, $credit ? 'admin_credit' : 'admin_debit', 'Adjustment: ' . $note, 'admin', $adminId);
-        $shown = $wallet === 'ads' ? plural($amount, 'credit') : money($amount);
+        $shown = $wallet === 'ads' ? stored_count($amount, '{n} credit', '{n} credits') : stored_money($amount);
         admin_log($adminId, 'balance.' . ($credit ? 'credit' : 'debit'), sprintf('%s %s %s member #%d (%s) — %s', $credit ? 'Credited' : 'Debited', $shown, $credit ? 'to' : 'from', $userId, WALLET_LABELS[$wallet], $note));
     });
 }
@@ -121,10 +144,10 @@ function admin_adjust_balance(int $adminId, int $userId, string $wallet, string 
 function admin_set_user_status(int $adminId, int $userId, string $status): void
 {
     if (!in_array($status, ['active', 'banned'], true)) {
-        throw new AppError('Unknown status.');
+        throw new AppError(t('Unknown status.'));
     }
     if ($userId === $adminId) {
-        throw new AppError('You cannot change the status of your own account.');
+        throw new AppError(t('You cannot change the status of your own account.'));
     }
     q('UPDATE users SET status = ? WHERE id = ?', [$status, $userId]);
     admin_log($adminId, 'user.' . ($status === 'banned' ? 'ban' : 'unban'), sprintf('Member #%d set to %s', $userId, $status));
@@ -133,10 +156,10 @@ function admin_set_user_status(int $adminId, int $userId, string $status): void
 function admin_set_user_role(int $adminId, int $userId, string $role): void
 {
     if (!in_array($role, ['user', 'admin'], true)) {
-        throw new AppError('Unknown role.');
+        throw new AppError(t('Unknown role.'));
     }
     if ($userId === $adminId) {
-        throw new AppError('You cannot change your own role.');
+        throw new AppError(t('You cannot change your own role.'));
     }
     q('UPDATE users SET role = ? WHERE id = ?', [$role, $userId]);
     admin_log($adminId, 'user.role', sprintf('Member #%d role set to %s', $userId, $role));
@@ -147,9 +170,13 @@ function admin_reset_password(int $adminId, int $userId, string $password): void
     validate_password($password, (string) val('SELECT username FROM users WHERE id = ?', [$userId]));
     q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $userId]);
     admin_log($adminId, 'user.password', sprintf('Reset the password of member #%d', $userId));
-    notify_member($userId, 'Your password was reset', 'Your password was reset by support', [
-        'An administrator set a new password on your ' . site_name() . ' account. Your other devices were signed out.',
-        'If you did not ask for this, contact support immediately.',
+    notify_member($userId, static fn (): array => [
+        'subject' => t('Your password was reset'),
+        'title'   => t('Your password was reset by support'),
+        'lines'   => [
+            t('An administrator set a new password on your {site} account. Your other devices were signed out.', ['site' => site_name()]),
+            t('If you did not ask for this, contact support immediately.'),
+        ],
     ], security: true);
 }
 
@@ -158,9 +185,13 @@ function admin_disable_2fa(int $adminId, int $userId): void
 {
     user_disable_2fa($userId);
     admin_log($adminId, 'user.2fa_reset', sprintf('Turned off two-factor authentication of member #%d', $userId));
-    notify_member($userId, 'Two-factor authentication was reset', 'Two-factor authentication was reset by support', [
-        'An administrator turned off two-factor authentication on your ' . site_name() . ' account. You can set it up again from your account page.',
-        'If you did not ask for this, contact support immediately.',
+    notify_member($userId, static fn (): array => [
+        'subject' => t('Two-factor authentication was reset'),
+        'title'   => t('Two-factor authentication was reset by support'),
+        'lines'   => [
+            t('An administrator turned off two-factor authentication on your {site} account. You can set it up again from your account page.', ['site' => site_name()]),
+            t('If you did not ask for this, contact support immediately.'),
+        ],
     ], security: true);
 }
 
@@ -169,7 +200,7 @@ function admin_set_email(int $adminId, int $userId, string $email): void
     $email = mb_strtolower(trim($email));
     validate_email($email);
     if (val('SELECT id FROM users WHERE email = ? AND id <> ?', [$email, $userId]) !== null) {
-        throw new AppError('Another account already uses this email.');
+        throw new AppError(t('Another account already uses this email.'));
     }
     $old = (string) val('SELECT email FROM users WHERE id = ?', [$userId]);
     q('UPDATE users SET email = ? WHERE id = ?', [$email, $userId]);
@@ -198,7 +229,7 @@ function admin_save_settings(int $adminId, array $input): void
     $values = [];
     $siteName = trim((string) ($input['site_name'] ?? ''));
     if (mb_strlen($siteName) < 2 || mb_strlen($siteName) > 40) {
-        throw new AppError('Site name must be 2 to 40 characters long.');
+        throw new AppError(t('Site name must be 2 to 40 characters long.'));
     }
     $values['site_name'] = $siteName;
     $symbol = trim((string) ($input['currency_symbol'] ?? '$'));
@@ -206,26 +237,26 @@ function admin_save_settings(int $adminId, array $input): void
     $values['currency_code'] = strtoupper(mb_substr(trim((string) ($input['currency_code'] ?? 'USD')), 0, 10)) ?: 'USD';
     $timezone = trim((string) ($input['timezone'] ?? 'UTC'));
     if (!in_array($timezone, DateTimeZone::listIdentifiers(), true)) {
-        throw new AppError('Choose a valid timezone.');
+        throw new AppError(t('Choose a valid timezone.'));
     }
     $values['timezone'] = $timezone;
     $email = trim((string) ($input['support_email'] ?? ''));
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new AppError('Support email is not valid.');
+        throw new AppError(t('Support email is not valid.'));
     }
     $values['support_email'] = $email;
 
     foreach ($money as $key) {
         $units = to_payment_units((string) ($input[$key] ?? ''));
         if ($units === null) {
-            throw new AppError(sprintf('“%s” must be an amount such as 1.00 (at most 2 decimals).', str_replace('_', ' ', $key)));
+            throw new AppError(t('“{field}” must be an amount such as 1.00 (at most 2 decimals).', ['field' => setting_label($key)]));
         }
         $values[$key] = (string) $units;
     }
     foreach ($ints as $key => [$min, $max]) {
         $raw = trim((string) ($input[$key] ?? ''));
         if (!preg_match('/^\d{1,9}$/', $raw) || (int) $raw < $min || (int) $raw > $max) {
-            throw new AppError(sprintf('“%s” must be a whole number between %d and %d.', str_replace('_', ' ', $key), $min, $max));
+            throw new AppError(t('“{field}” must be a whole number between {min} and {max}.', ['field' => setting_label($key), 'min' => num($min), 'max' => num($max)]));
         }
         $values[$key] = (string) (int) $raw;
     }
@@ -238,37 +269,40 @@ function admin_save_settings(int $adminId, array $input): void
     $target = (int) $values['bubble_target'];
     $referral = (int) $values['referral_commission'];
     if ($price <= 0 || $share <= 0 || $target <= 0) {
-        throw new AppError('Bubble price, pool share and expiry target must be greater than zero.');
+        throw new AppError(t('Bubble price, pool share and expiry target must be greater than zero.'));
     }
     if ($share + $referral > $price) {
-        throw new AppError('Pool share plus referral commission cannot exceed the bubble price.');
+        throw new AppError(t('Pool share plus referral commission cannot exceed the bubble price.'));
     }
 
     $values['disclaimer'] = mb_substr(trim((string) ($input['disclaimer'] ?? '')), 0, 2000);
     $values['terms_text'] = mb_substr(trim((string) ($input['terms_text'] ?? '')), 0, 20000);
     $values['privacy_text'] = mb_substr(trim((string) ($input['privacy_text'] ?? '')), 0, 20000);
+    $values['disclaimer_fr'] = mb_substr(trim((string) ($input['disclaimer_fr'] ?? '')), 0, 2000);
+    $values['terms_text_fr'] = mb_substr(trim((string) ($input['terms_text_fr'] ?? '')), 0, 20000);
+    $values['privacy_text_fr'] = mb_substr(trim((string) ($input['privacy_text_fr'] ?? '')), 0, 20000);
 
     // Email
     $transport = (string) ($input['mail_transport'] ?? 'off');
     if (!in_array($transport, ['off', 'smtp', 'mail', 'log'], true)) {
-        throw new AppError('Choose how emails are sent.');
+        throw new AppError(t('Choose how emails are sent.'));
     }
     $values['mail_transport'] = $transport;
     $from = trim((string) ($input['mail_from'] ?? ''));
     if ($from !== '' && !filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        throw new AppError('The sender address is not a valid email.');
+        throw new AppError(t('The sender address is not a valid email.'));
     }
     if ($transport !== 'off' && $from === '') {
-        throw new AppError('Enter the sender address emails are sent from.');
+        throw new AppError(t('Enter the sender address emails are sent from.'));
     }
     $values['mail_from'] = $from;
     $values['mail_from_name'] = mb_substr(mail_header_value((string) ($input['mail_from_name'] ?? '')), 0, 60);
     $smtpHost = trim((string) ($input['smtp_host'] ?? ''));
     if ($smtpHost !== '' && !preg_match('/^[A-Za-z0-9.-]{1,253}$/', $smtpHost)) {
-        throw new AppError('The SMTP host must be a host name such as smtp.example.com.');
+        throw new AppError(t('The SMTP host must be a host name such as smtp.example.com.'));
     }
     if ($transport === 'smtp' && $smtpHost === '') {
-        throw new AppError('Enter the SMTP host.');
+        throw new AppError(t('Enter the SMTP host.'));
     }
     $values['smtp_host'] = $smtpHost;
     $encryption = (string) ($input['smtp_encryption'] ?? 'tls');
@@ -286,7 +320,7 @@ function admin_save_settings(int $adminId, array $input): void
     settings_save($values);
     $changed = [];
     foreach ($values as $key => $value) {
-        if ((string) ($before[$key] ?? '') !== $value && !in_array($key, ['disclaimer', 'terms_text', 'privacy_text'], true)) {
+        if ((string) ($before[$key] ?? '') !== $value && !in_array($key, ['disclaimer', 'terms_text', 'privacy_text', 'disclaimer_fr', 'terms_text_fr', 'privacy_text_fr'], true)) {
             $changed[] = $key;
         }
     }

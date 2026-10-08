@@ -2,7 +2,8 @@
 require __DIR__ . '/../../app/bootstrap.php';
 
 $admin = require_admin();
-$filters = ['all' => 'All', 'active' => 'Active', 'banned' => 'Banned', 'admin' => 'Admins'];
+$filterNames = ['all' => 'All', 'active' => 'Active', 'banned' => 'Banned', 'admin' => 'Admins']; // English: stored in the audit log
+$filters = array_map(static fn (string $name): string => t($name), $filterNames);
 $filter = array_key_exists(query('filter'), $filters) ? query('filter') : 'all';
 $sorts = [
     'newest'  => 'u.id DESC',
@@ -27,7 +28,7 @@ if ($search !== '') {
 }
 $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 if (query('export') === 'csv') {
-    admin_log((int) $admin['id'], 'export.members', 'Exported members (' . $filters[$filter] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
+    admin_log((int) $admin['id'], 'export.members', 'Exported members (' . $filterNames[$filter] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
     csv_export('members', "SELECT u.*, r.username AS referrer_name FROM users u LEFT JOIN users r ON r.id = u.referrer_id $sqlWhere ORDER BY u.id", $params, [
         'ID'                 => static fn (array $u) => $u['id'],
         'Username'           => static fn (array $u) => $u['username'],
@@ -60,8 +61,8 @@ $users = rows(
 );
 
 render('admin/users', [
-    'title'      => 'Members',
-    'eyebrow'    => number_format((int) val('SELECT COUNT(*) FROM users')) . ' accounts',
+    'title'      => t('Members'),
+    'eyebrow'    => tn('{n} account', '{n} accounts', (int) val('SELECT COUNT(*) FROM users')),
     'page'       => 'admin-users',
     'admin_area' => true,
     'filters'    => $filters,

@@ -11,20 +11,21 @@ $me = current_user();
 $edition = cosmic_edition();
 $lines = $hero['lines'] ?? [$title ?? site_name()];
 ?><!doctype html>
-<html lang="en">
+<html lang="<?= e(lang()) ?>">
 <head>
 <?= partial('head', ['title' => $title ?? site_name(), 'description' => $hero['lead'] ?? null, 'indexable' => true]) ?>
 </head>
 <body class="public-page cosmic-app theme-violet">
-<a class="skip-link" href="#content">Skip to content</a>
+<a class="skip-link" href="#content"><?= e(t('Skip to content')) ?></a>
 <header class="site-header">
     <?= partial('brand', ['href' => url('index.php')]) ?>
-    <nav class="site-nav" aria-label="Main">
-        <a href="<?= e(url('index.php')) ?>#experience">The app</a>
-        <a href="<?= e(url('index.php')) ?>#loop">The cycle</a>
-        <a href="<?= e(url($me !== null ? 'dashboard.php' : 'login.php')) ?>"><?= $me !== null ? 'My account' : 'Sign in' ?></a>
+    <nav class="site-nav" aria-label="<?= e(t('Main')) ?>">
+        <a href="<?= e(url('index.php')) ?>#experience"><?= e(t('The app')) ?></a>
+        <a href="<?= e(url('index.php')) ?>#loop"><?= e(t('The cycle')) ?></a>
+        <a href="<?= e(url($me !== null ? 'dashboard.php' : 'login.php')) ?>"><?= e($me !== null ? t('My account') : t('Sign in')) ?></a>
     </nav>
-    <a class="header-pill" href="<?= e(url($me !== null ? 'buy.php' : 'register.php')) ?>"><?= $me !== null ? 'Buy bubbles' : 'Create an account' ?><span aria-hidden="true">↗</span></a>
+    <?= partial('lang-switch') ?>
+    <a class="header-pill" href="<?= e(url($me !== null ? 'buy.php' : 'register.php')) ?>"><?= e($me !== null ? t('Buy bubbles') : t('Create an account')) ?><span aria-hidden="true">↗</span></a>
 </header>
 
 <main id="content">
@@ -44,8 +45,8 @@ $lines = $hero['lines'] ?? [$title ?? site_name()];
 
 <footer class="site-footer">
     <?= partial('brand', ['href' => url('index.php')]) ?>
-    <p>© <?= gmdate('Y') ?> <?= e(site_name()) ?> · <a href="<?= e(url('terms.php')) ?>">Terms &amp; risks</a> · <a href="<?= e(url('privacy.php')) ?>">Privacy</a><?php if (setting('support_email') !== ''): ?> · <a href="mailto:<?= e(setting('support_email')) ?>">Support</a><?php endif; ?></p>
-    <a href="<?= e(url('index.php')) ?>">Back to home ↗</a>
+    <p>© <?= gmdate('Y') ?> <?= e(site_name()) ?> · <a href="<?= e(url('terms.php')) ?>"><?= e(t('Terms & risks')) ?></a> · <a href="<?= e(url('privacy.php')) ?>"><?= e(t('Privacy')) ?></a><?php if (setting('support_email') !== ''): ?> · <a href="mailto:<?= e(setting('support_email')) ?>"><?= e(t('Support')) ?></a><?php endif; ?></p>
+    <a href="<?= e(url('index.php')) ?>"><?= e(t('Back to home')) ?> ↗</a>
 </footer>
 </body>
 </html>

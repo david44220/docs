@@ -59,6 +59,10 @@ const SETTING_DEFAULTS = [
         . 'Only use money you can afford to lose.',
     'terms_text'   => '',
     'privacy_text' => '',
+    // French versions of the operator's own texts (the default texts are translated automatically)
+    'disclaimer_fr'   => '',
+    'terms_text_fr'   => '',
+    'privacy_text_fr' => '',
 ];
 
 function settings_all(bool $refresh = false): array
@@ -127,4 +131,18 @@ function sales_per_expiry(): float
 {
     $share = setting_int('pool_share');
     return $share > 0 ? setting_int('bubble_target') / $share : 0.0;
+}
+
+/**
+ * An operator text (disclaimer, terms, privacy) in the current language: the
+ * French version when one is set, the built-in translation of the default
+ * text, or the operator's own text as written.
+ */
+function setting_text(string $key): string
+{
+    if (lang() === 'fr' && setting($key . '_fr') !== '') {
+        return setting($key . '_fr');
+    }
+    $value = setting($key);
+    return $value !== '' && $value === (SETTING_DEFAULTS[$key] ?? null) ? t($value) : $value;
 }

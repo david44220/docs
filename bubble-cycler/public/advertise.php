@@ -21,27 +21,27 @@ if (is_post()) {
             case 'create':
                 campaign_create($uid, $input, (int) post('credits'));
                 flash('success', setting_bool('campaign_approval')
-                    ? 'Campaign created — it goes live as soon as an admin approves it.'
-                    : 'Campaign created and live. Members will see it before their next purchase.');
+                    ? t('Campaign created — it goes live as soon as an admin approves it.')
+                    : t('Campaign created and live. Members will see it before their next purchase.'));
                 redirect(url('advertise.php'));
             case 'update':
                 campaign_update($uid, $id, $input);
-                flash('success', setting_bool('campaign_approval') ? 'Changes saved — the campaign is back in review.' : 'Changes saved.');
+                flash('success', setting_bool('campaign_approval') ? t('Changes saved — the campaign is back in review.') : t('Changes saved.'));
                 redirect(url('advertise.php'));
             case 'fund':
                 campaign_add_credits($uid, $id, (int) post('credits'));
-                flash('success', 'Credits added to your campaign.');
+                flash('success', t('Credits added to your campaign.'));
                 redirect(url('advertise.php'));
             case 'toggle':
                 $status = campaign_toggle($uid, $id);
-                flash('success', $status === 'paused' ? 'Campaign paused.' : 'Campaign resumed.');
+                flash('success', $status === 'paused' ? t('Campaign paused.') : t('Campaign resumed.'));
                 redirect(url('advertise.php'));
             case 'delete':
                 $refund = campaign_delete($uid, $id);
-                flash('success', 'Campaign deleted' . ($refund > 0 ? ' — ' . plural($refund, 'credit') . ' returned to your account.' : '.'));
+                flash('success', $refund > 0 ? tn('Campaign deleted — {n} credit returned to your account.', 'Campaign deleted — {n} credits returned to your account.', $refund) : t('Campaign deleted.'));
                 redirect(url('advertise.php'));
             default:
-                throw new AppError('Unknown action.');
+                throw new AppError(t('Unknown action.'));
         }
     } catch (AppError $e) {
         if (in_array($action, ['create', 'update'], true)) {
@@ -77,8 +77,8 @@ foreach ($campaigns as $c) {
 }
 
 render('user/advertise', [
-    'title'     => 'Advertise',
-    'eyebrow'   => 'Your ad network',
+    'title'     => t('Advertise'),
+    'eyebrow'   => t('Your ad network'),
     'page'      => 'advertise',
     'user'      => current_user(true),
     'campaigns' => $campaigns,

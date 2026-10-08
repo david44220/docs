@@ -31,10 +31,10 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
                  data-token="<?= e($token) ?>" data-complete-url="<?= e(url('ad.php', ['a' => 'complete'])) ?>">
             <header class="adgate__head">
                 <div>
-                    <span class="eyebrow"><span class="step-dot">1</span> Sponsored message</span>
-                    <p class="adgate__lead">Watch for <?= $seconds ?> seconds to unlock your purchase.</p>
+                    <span class="eyebrow"><span class="step-dot">1</span> <?= e(t('Sponsored message')) ?></span>
+                    <p class="adgate__lead"><?= e(tn('Watch for {n} second to unlock your purchase.', 'Watch for {n} seconds to unlock your purchase.', $seconds)) ?></p>
                 </div>
-                <div class="countdown" role="timer" aria-live="off" aria-label="Seconds remaining">
+                <div class="countdown" role="timer" aria-live="off" aria-label="<?= e(t('Seconds remaining')) ?>">
                     <svg viewBox="0 0 44 44" aria-hidden="true">
                         <circle class="countdown__track" cx="22" cy="22" r="19"/>
                         <circle class="countdown__bar" cx="22" cy="22" r="19" data-countdown-bar/>
@@ -53,7 +53,7 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
                     </span>
                 <?php endif; ?>
                 <span class="adcreative__body">
-                    <strong class="adcreative__title"><?= e($campaign['title'] ?? 'Sponsored message') ?></strong>
+                    <strong class="adcreative__title"><?= e($campaign['title'] ?? t('Sponsored message')) ?></strong>
                     <?php if (!empty($campaign['description'])): ?><span class="adcreative__text"><?= e($campaign['description']) ?></span><?php endif; ?>
                     <?php if ($campaign !== null): ?>
                         <span class="adcreative__domain"><?= icon('globe') ?> <?= e(url_host($campaign['url'])) ?></span>
@@ -64,13 +64,13 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
             <footer class="adgate__foot">
                 <p class="adgate__status" data-ad-status>
                     <?php if ($locked): ?>
-                        <?= icon('lock') ?> <span>Your purchase unlocks in <b data-countdown-text><?= (int) $ad['remaining'] ?>s</b>. Keep this tab open.<noscript> JavaScript is off: reload this page when the time is up.</noscript></span>
+                        <?= icon('lock') ?> <span><?= t_html('Your purchase unlocks in {time}. Keep this tab open.', ['time' => '<b data-countdown-text>' . e(t('{n}s', ['n' => num($ad['remaining'])])) . '</b>']) ?><noscript> <?= e(t('JavaScript is off: reload this page when the time is up.')) ?></noscript></span>
                     <?php else: ?>
-                        <?= icon('unlock') ?> <span>Thanks for watching — your purchase is unlocked.</span>
+                        <?= icon('unlock') ?> <span><?= e(t('Thanks for watching — your purchase is unlocked.')) ?></span>
                     <?php endif; ?>
                 </p>
                 <?php if ($campaign !== null): ?>
-                    <a class="btn btn--secondary btn--sm" href="<?= e($clickUrl) ?>" target="_blank" rel="sponsored noopener"><?= e($campaign['cta_label'] ?: 'Visit site') ?> <?= icon('external') ?></a>
+                    <a class="btn btn--secondary btn--sm" href="<?= e($clickUrl) ?>" target="_blank" rel="sponsored noopener"><?= e($campaign['cta_label'] ?: t('Visit site')) ?> <?= icon('external') ?></a>
                 <?php endif; ?>
             </footer>
         </section>
@@ -78,17 +78,17 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
         <section class="adgate card is-done">
             <header class="adgate__head">
                 <div>
-                    <span class="eyebrow"><span class="step-dot">1</span> Sponsored message</span>
-                    <p class="adgate__lead"><?= $adRequired ? 'No sponsored message is running right now.' : 'Ads are switched off for purchases.' ?></p>
+                    <span class="eyebrow"><span class="step-dot">1</span> <?= e(t('Sponsored message')) ?></span>
+                    <p class="adgate__lead"><?= e($adRequired ? t('No sponsored message is running right now.') : t('Ads are switched off for purchases.')) ?></p>
                 </div>
                 <div class="countdown"><span class="countdown__done"><?= icon('check') ?></span></div>
             </header>
             <div class="adcreative adcreative--empty">
                 <span class="adcreative__media adcreative__media--placeholder"><?= icon('megaphone') ?></span>
                 <span class="adcreative__body">
-                    <strong class="adcreative__title">This spot is available</strong>
-                    <span class="adcreative__text">Use the ad credits included with your bubbles to show your own message here.</span>
-                    <a class="adcreative__domain" href="<?= e(url('advertise.php')) ?>"><?= icon('arrow-right') ?> Create a campaign</a>
+                    <strong class="adcreative__title"><?= e(t('This spot is available')) ?></strong>
+                    <span class="adcreative__text"><?= e(t('Use the ad credits included with your bubbles to show your own message here.')) ?></span>
+                    <a class="adcreative__domain" href="<?= e(url('advertise.php')) ?>"><?= icon('arrow-right') ?> <?= e(t('Create a campaign')) ?></a>
                 </span>
             </div>
         </section>
@@ -104,71 +104,71 @@ $chips = array_values(array_filter([1, 5, 10, 25, 50], static fn (int $n): bool 
 
         <header class="card__head">
             <div>
-                <span class="eyebrow"><span class="step-dot">2</span> Your bubbles</span>
-                <h2 class="card__title"><?= e(money($price)) ?> each · expires at <?= e(money($target)) ?></h2>
+                <span class="eyebrow"><span class="step-dot">2</span> <?= e(t('Your bubbles')) ?></span>
+                <h2 class="card__title"><?= e(t('{price} each · expires at {target}', ['price' => money($price), 'target' => money($target)])) ?></h2>
             </div>
         </header>
 
         <div class="field">
-            <span class="field__label" id="qty-label">How many bubbles?</span>
+            <span class="field__label" id="qty-label"><?= e(t('How many bubbles?')) ?></span>
             <div class="stepper">
-                <button class="stepper__btn" type="button" data-step="-1" aria-label="One less"><?= icon('minus') ?></button>
+                <button class="stepper__btn" type="button" data-step="-1" aria-label="<?= e(t('One less')) ?>"><?= icon('minus') ?></button>
                 <input class="stepper__input" type="number" name="quantity" value="<?= $quantity ?>" min="1" max="<?= $max ?>" inputmode="numeric" aria-labelledby="qty-label" data-qty>
-                <button class="stepper__btn" type="button" data-step="1" aria-label="One more"><?= icon('plus') ?></button>
+                <button class="stepper__btn" type="button" data-step="1" aria-label="<?= e(t('One more')) ?>"><?= icon('plus') ?></button>
             </div>
             <div class="chips">
                 <?php foreach ($chips as $n): ?>
-                    <button class="chip<?= $n === $quantity ? ' is-active' : '' ?>" type="button" data-qty-set="<?= $n ?>"><?= $n ?></button>
+                    <button class="chip<?= $n === $quantity ? ' is-active' : '' ?>" type="button" data-qty-set="<?= $n ?>"><?= e(num($n)) ?></button>
                 <?php endforeach; ?>
             </div>
         </div>
 
         <fieldset class="field">
-            <legend class="field__label">Pay with</legend>
+            <legend class="field__label"><?= e(t('Pay with')) ?></legend>
             <div class="segmented">
                 <label class="segmented__option">
                     <input type="radio" name="wallet" value="purchase"<?= $wallet === 'purchase' ? ' checked' : '' ?> data-wallet>
-                    <span><b>Purchase balance</b><small><?= e(money($user['purchase_balance'])) ?></small></span>
+                    <span><b><?= e(t('Purchase balance')) ?></b><small><?= e(money($user['purchase_balance'])) ?></small></span>
                 </label>
                 <label class="segmented__option<?= $cashAllowed ? '' : ' is-disabled' ?>">
                     <input type="radio" name="wallet" value="cash"<?= $wallet === 'cash' ? ' checked' : '' ?><?= $cashAllowed ? '' : ' disabled' ?> data-wallet>
-                    <span><b>Cash balance</b><small><?= $cashAllowed ? e(money($user['cash_balance'])) : 'Disabled' ?></small></span>
+                    <span><b><?= e(t('Cash balance')) ?></b><small><?= e($cashAllowed ? money($user['cash_balance']) : t('Disabled')) ?></small></span>
                 </label>
             </div>
         </fieldset>
 
         <dl class="summary">
-            <div><dt>Total</dt><dd class="summary__total" data-sum-total><?= e(money($price * $quantity)) ?></dd></div>
-            <div><dt>Credited to the pool</dt><dd data-sum-pool><?= e(money($share * $quantity)) ?></dd></div>
-            <div><dt>Ad credits included</dt><dd class="text-pink" data-sum-credits>+<?= number_format($credits * $quantity) ?></dd></div>
-            <div><dt>Your first bubble</dt><dd>#<?= number_format($quote['first_id']) ?> · <?= plural($quote['ahead'], 'bubble') ?> ahead</dd></div>
-            <div><dt>Expected to expire after</dt><dd data-sum-sales>~<?= plural($quote['sales'], 'more sale') ?></dd></div>
+            <div><dt><?= e(t('Total')) ?></dt><dd class="summary__total" data-sum-total><?= e(money($price * $quantity)) ?></dd></div>
+            <div><dt><?= e(t('Credited to the pool')) ?></dt><dd data-sum-pool><?= e(money($share * $quantity)) ?></dd></div>
+            <div><dt><?= e(t('Ad credits included')) ?></dt><dd class="text-pink" data-sum-credits>+<?= e(num($credits * $quantity)) ?></dd></div>
+            <div><dt><?= e(t('Your first bubble')) ?></dt><dd><?= e(tn('#{id} · {n} bubble ahead', '#{id} · {n} bubbles ahead', $quote['ahead'], ['id' => num($quote['first_id'])])) ?></dd></div>
+            <div><dt><?= e(t('Expected to expire after')) ?></dt><dd data-sum-sales>~<?= e(tn('{n} more sale', '{n} more sales', $quote['sales'])) ?></dd></div>
         </dl>
 
-        <p class="buy__warning" data-buy-warning hidden><?= icon('alert') ?> <span>Not enough balance. <a href="<?= e(url('deposit.php')) ?>">Make a deposit</a>.</span></p>
+        <p class="buy__warning" data-buy-warning hidden><?= icon('alert') ?> <span><?= t_html('Not enough balance. {link}.', ['link' => '<a href="' . e(url('deposit.php')) . '">' . e(t('Make a deposit')) . '</a>']) ?></span></p>
 
         <button class="btn btn--primary btn--xl btn--block buy__submit<?= $locked ? ' is-locked' : '' ?>" type="submit" data-buy-submit<?= $locked ? ' disabled' : '' ?>>
             <span class="buy__lock"><?= icon('lock') ?></span>
             <span class="buy__go"><?= icon('sparkles') ?></span>
-            <span data-buy-label>Buy <?= plural($quantity, 'bubble') ?> · <?= e(money($price * $quantity)) ?></span>
+            <span data-buy-label><?= e(tn('Buy {n} bubble · {amount}', 'Buy {n} bubbles · {amount}', $quantity, ['amount' => money($price * $quantity)])) ?></span>
         </button>
-        <p class="buy__fineprint muted">Payouts depend on future purchases and are not guaranteed.</p>
+        <p class="buy__fineprint muted"><?= e(t('Payouts depend on future purchases and are not guaranteed.')) ?></p>
     </form>
 </div>
 
 <section class="card split-card">
     <div>
-        <h2 class="card__title">Where each <?= e(money($price)) ?> goes</h2>
-        <p class="card__sub">The split is identical for every bubble and every member.</p>
+        <h2 class="card__title"><?= e(t('Where each {amount} goes', ['amount' => money($price)])) ?></h2>
+        <p class="card__sub"><?= e(t('The split is identical for every bubble and every member.')) ?></p>
     </div>
-    <div class="splitbar" role="img" aria-label="Pool <?= e(money($share)) ?>, referral <?= e(money($referral)) ?>, platform <?= e(money($platform)) ?>">
+    <div class="splitbar" role="img" aria-label="<?= e(t('Pool {pool}, referral {referral}, platform {platform}', ['pool' => money($share), 'referral' => money($referral), 'platform' => money($platform)])) ?>">
         <span class="splitbar__seg splitbar__seg--pool" style="flex: <?= max(1, $share) ?>"></span>
         <?php if ($referral > 0): ?><span class="splitbar__seg splitbar__seg--ref" style="flex: <?= $referral ?>"></span><?php endif; ?>
         <?php if ($platform > 0): ?><span class="splitbar__seg splitbar__seg--fee" style="flex: <?= $platform ?>"></span><?php endif; ?>
     </div>
     <ul class="legend">
-        <li><i class="legend__dot legend__dot--pool"></i> Pool <b><?= e(money($share)) ?></b> <span class="muted"><?= pct($share, $price) ?></span></li>
-        <?php if ($referral > 0): ?><li><i class="legend__dot legend__dot--ref"></i> Referrer <b><?= e(money($referral)) ?></b> <span class="muted"><?= pct($referral, $price) ?></span></li><?php endif; ?>
-        <li><i class="legend__dot legend__dot--fee"></i> Platform <b><?= e(money($platform)) ?></b> <span class="muted"><?= pct($platform, $price) ?></span></li>
+        <li><i class="legend__dot legend__dot--pool"></i> <?= e(t('Pool')) ?> <b><?= e(money($share)) ?></b> <span class="muted"><?= pct($share, $price) ?></span></li>
+        <?php if ($referral > 0): ?><li><i class="legend__dot legend__dot--ref"></i> <?= e(t('Referrer')) ?> <b><?= e(money($referral)) ?></b> <span class="muted"><?= pct($referral, $price) ?></span></li><?php endif; ?>
+        <li><i class="legend__dot legend__dot--fee"></i> <?= e(t('Platform')) ?> <b><?= e(money($platform)) ?></b> <span class="muted"><?= pct($platform, $price) ?></span></li>
     </ul>
 </section>

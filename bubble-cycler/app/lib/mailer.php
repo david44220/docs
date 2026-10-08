@@ -90,10 +90,10 @@ function mail_build(string $to, string $subject, string $text, string $html): ar
 function send_mail(string $to, string $subject, string $text, ?string $html = null): void
 {
     if (!mail_enabled()) {
-        throw new RuntimeException('Email is not configured (Admin → Settings → Email, and base_url in config.php).');
+        throw new RuntimeException(t('Email is not configured (Admin → Settings → Email, and base_url in config.php).'));
     }
     if (filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-        throw new RuntimeException('Invalid recipient address.');
+        throw new RuntimeException(t('Invalid recipient address.'));
     }
     $message = mail_build($to, $subject, $text, $html ?? nl2br(e($text)));
     $transport = setting('mail_transport');
@@ -102,7 +102,7 @@ function send_mail(string $to, string $subject, string $text, ?string $html = nu
         $raw = implode("\r\n", array_map(static fn ($k, $v) => "$k: $v", array_keys($message['headers']), $message['headers']));
         $entry = "=== " . gmdate('c') . " ===\r\n" . $raw . "\r\n\r\n" . $message['body'] . "\r\n";
         if (@file_put_contents(STORAGE_DIR . '/logs/mail.log', $entry, FILE_APPEND | LOCK_EX) === false) {
-            throw new RuntimeException('Could not write storage/logs/mail.log');
+            throw new RuntimeException(t('Could not write storage/logs/mail.log'));
         }
         return;
     }
@@ -115,7 +115,7 @@ function send_mail(string $to, string $subject, string $text, ?string $html = nu
         $from = setting('mail_from');
         $ok = mail($to, $subjectHeader, $message['body'], $lines, '-f' . $from);
         if (!$ok) {
-            throw new RuntimeException('PHP mail() refused the message.');
+            throw new RuntimeException(t('PHP mail() refused the message.'));
         }
         return;
     }
@@ -134,7 +134,7 @@ function smtp_send(string $from, string $to, string $data): void
     $username = setting('smtp_username');
     $password = open_secret(setting('smtp_password')) ?? '';
     if ($host === '') {
-        throw new RuntimeException('SMTP host is not set.');
+        throw new RuntimeException(t('SMTP host is not set.'));
     }
 
     $verify = (bool) config('mail_verify_peer', true);
@@ -148,7 +148,7 @@ function smtp_send(string $from, string $to, string $data): void
     $scheme = $encryption === 'ssl' ? 'ssl' : 'tcp';
     $socket = @stream_socket_client("$scheme://$host:$port", $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $context);
     if ($socket === false) {
-        throw new RuntimeException("Cannot connect to SMTP server $host:$port ($errstr)");
+        throw new RuntimeException(t('Cannot connect to SMTP server {server} ({error})', ['server' => "$host:$port", 'error' => $errstr ?? '']));
     }
     stream_set_timeout($socket, 20);
 
@@ -161,7 +161,7 @@ function smtp_send(string $from, string $to, string $data): void
             }
         }
         if ($response === '') {
-            throw new RuntimeException('The SMTP server closed the connection.');
+            throw new RuntimeException(t('The SMTP server closed the connection.'));
         }
         return [(int) substr($response, 0, 3), $response];
     };
@@ -170,7 +170,7 @@ function smtp_send(string $from, string $to, string $data): void
         [$code, $response] = $read();
         if (!in_array($code, $expect, true)) {
             // Never echo the command itself: it may contain credentials.
-            throw new RuntimeException("SMTP $label failed: " . trim($response));
+            throw new RuntimeException(t('SMTP {step} failed: {response}', ['step' => $label, 'response' => trim($response)]));
         }
         return $response;
     };
@@ -178,7 +178,7 @@ function smtp_send(string $from, string $to, string $data): void
     try {
         [$code, $greeting] = $read();
         if ($code !== 220) {
-            throw new RuntimeException('Unexpected SMTP greeting: ' . trim($greeting));
+            throw new RuntimeException(t('Unexpected SMTP greeting: {response}', ['response' => trim($greeting)]));
         }
         $ehloName = parse_url(mail_base_url(), PHP_URL_HOST) ?: 'localhost';
         $capabilities = $send("EHLO $ehloName", [250], 'EHLO');
@@ -186,7 +186,7 @@ function smtp_send(string $from, string $to, string $data): void
             $send('STARTTLS', [220], 'STARTTLS');
             $crypto = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
             if (@stream_socket_enable_crypto($socket, true, $crypto) !== true) {
-                throw new RuntimeException('STARTTLS handshake failed (check the certificate or use SSL on port 465).');
+                throw new RuntimeException(t('STARTTLS handshake failed (check the certificate or use SSL on port 465).'));
             }
             $capabilities = $send("EHLO $ehloName", [250], 'EHLO');
         }
@@ -224,54 +224,72 @@ function mail_html(string $title, string $bodyHtml, ?string $buttonUrl = null, ?
           . 'background:#dfaaff;color:#081018;font-size:13px;font-weight:600;letter-spacing:.02em;text-decoration:none">'
           . e((string) $buttonLabel) . ' &#8599;</a></p>'
         : '';
-    return '<!doctype html><html><body style="margin:0;padding:0;background:#07090f">'
+    return '<!doctype html><html lang="' . lang() . '"><body style="margin:0;padding:0;background:#07090f">'
         . '<div style="max-width:560px;margin:0 auto;padding:36px 20px;' . $font . ';color:#f7f5f0">'
         . '<p style="font-size:17px;margin:0 0 26px;color:#f7f5f0;letter-spacing:-.03em"><strong style="font-weight:700">' . e($brand['name'])
         . '</strong><span style="font-weight:400">' . e($brand['light']) . '</span></p>'
         . '<div style="background:#0e0c16;border:1px solid #332a40;padding:30px 28px">'
         . '<h1 style="font-size:26px;line-height:1.15;font-weight:600;letter-spacing:-.04em;margin:0 0 16px;color:#f7f5f0">' . e($title) . '</h1>'
         . '<div style="font-size:15px;line-height:1.65;color:#b8bdc9">' . $bodyHtml . '</div>' . $button
-        . '</div><p style="font-size:12px;line-height:1.6;color:#858a9b;margin:20px 2px 0">' . e(setting('disclaimer')) . '</p>'
+        . '</div><p style="font-size:12px;line-height:1.6;color:#858a9b;margin:20px 2px 0">' . e(setting_text('disclaimer')) . '</p>'
         . '</div></body></html>';
 }
 
 /**
- * Send a notification: never throws (failures are logged) so that business
- * actions are not undone because an email could not be delivered.
+ * Send a notification in a given language: $compose runs in that language and
+ * returns ['subject' => ..., 'title' => ..., 'lines' => [...], 'button' => [label, path] | null].
+ * Never throws (failures are logged) so that business actions are not undone
+ * because an email could not be delivered.
+ *
+ * @param callable(): array{subject: string, title: string, lines: list<string>, button?: array{0: string, 1: string}|null} $compose
  */
-function notify_email(string $to, string $subject, string $title, array $paragraphs, ?string $buttonPath = null, ?string $buttonLabel = null): bool
+function notify_email(string $to, ?string $lang, callable $compose): bool
 {
     if (!mail_enabled() || $to === '') {
         return false;
     }
-    $buttonUrl = $buttonPath !== null ? mail_link($buttonPath) : null;
-    $text = $title . "\n\n" . implode("\n\n", $paragraphs) . ($buttonUrl !== null ? "\n\n$buttonLabel: $buttonUrl" : '')
-        . "\n\n— " . site_name();
-    $html = mail_html($title, implode('', array_map(static fn (string $p): string => '<p style="margin:0 0 12px">' . e($p) . '</p>', $paragraphs)), $buttonUrl, $buttonLabel);
-    try {
-        send_mail($to, $subject, $text, $html);
-        return true;
-    } catch (Throwable $e) {
-        log_error($e);
-        return false;
-    }
+    return with_lang($lang, static function () use ($to, $compose): bool {
+        $mail = $compose();
+        [$buttonLabel, $buttonPath] = $mail['button'] ?? [null, null];
+        $buttonUrl = $buttonPath !== null ? mail_link($buttonPath) : null;
+        $text = $mail['title'] . "\n\n" . implode("\n\n", $mail['lines']) . ($buttonUrl !== null ? "\n\n$buttonLabel: $buttonUrl" : '')
+            . "\n\n— " . site_name();
+        $html = mail_html($mail['title'], implode('', array_map(static fn (string $p): string => '<p style="margin:0 0 12px">' . e($p) . '</p>', $mail['lines'])), $buttonUrl, $buttonLabel);
+        try {
+            send_mail($to, $mail['subject'], $text, $html);
+            return true;
+        } catch (Throwable $e) {
+            log_error($e);
+            return false;
+        }
+    });
 }
 
-/** Email a member (respects the member notification setting). */
-function notify_member(int $userId, string $subject, string $title, array $paragraphs, ?string $buttonPath = null, ?string $buttonLabel = null, bool $security = false): bool
+/**
+ * Email a member in their own language (respects the member notification setting).
+ *
+ * @param callable(): array{subject: string, title: string, lines: list<string>, button?: array{0: string, 1: string}|null} $compose
+ */
+function notify_member(int $userId, callable $compose, bool $security = false): bool
 {
     if (!$security && !setting_bool('notify_members')) {
         return false;
     }
-    $email = (string) val('SELECT email FROM users WHERE id = ?', [$userId]);
-    return notify_email($email, $subject, $title, $paragraphs, $buttonPath, $buttonLabel);
+    $member = row('SELECT email, lang FROM users WHERE id = ?', [$userId]);
+    return $member !== null && notify_email((string) $member['email'], $member['lang'] ?? null, $compose);
 }
 
-/** Email the operator (support email) about work waiting in the admin panel. */
-function notify_admins(string $subject, string $title, array $paragraphs, string $buttonPath, string $buttonLabel): bool
+/**
+ * Email the operator (support email) about work waiting in the admin panel,
+ * in the language of the first admin account.
+ *
+ * @param callable(): array{subject: string, title: string, lines: list<string>, button?: array{0: string, 1: string}|null} $compose
+ */
+function notify_admins(callable $compose): bool
 {
     if (!setting_bool('notify_admins')) {
         return false;
     }
-    return notify_email(setting('support_email'), $subject, $title, $paragraphs, $buttonPath, $buttonLabel);
+    $lang = val("SELECT lang FROM users WHERE role = 'admin' ORDER BY id LIMIT 1");
+    return notify_email(setting('support_email'), is_string($lang) ? $lang : null, $compose);
 }

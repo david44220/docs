@@ -18,8 +18,8 @@ if ((int) $newPops['n'] > 0) {
 $nextMine = row("SELECT * FROM bubbles WHERE user_id = ? AND status = 'active' ORDER BY id ASC LIMIT 1", [$uid]);
 
 render('user/dashboard', [
-    'title'      => 'Dashboard',
-    'eyebrow'    => 'Hi ' . $user['username'],
+    'title'      => t('Dashboard'),
+    'eyebrow'    => t('Hi {user}', ['user' => $user['username']]),
     'page'       => 'dashboard',
     'user'       => $user,
     'pool'       => $pool,

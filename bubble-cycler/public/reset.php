@@ -12,15 +12,19 @@ if (is_post() && $member !== null) {
             is_string($_POST['password'] ?? null) ? $_POST['password'] : '',
             is_string($_POST['password_confirm'] ?? null) ? $_POST['password_confirm'] : ''
         );
-        notify_member((int) $user['id'], 'Your password was changed', 'Your password was changed', [
-            'The password of your ' . site_name() . ' account was just reset.',
-            'If this was not you, contact support immediately.',
+        notify_member((int) $user['id'], static fn (): array => [
+            'subject' => t('Your password was changed'),
+            'title'   => t('Your password was changed'),
+            'lines'   => [
+                t('The password of your {site} account was just reset.', ['site' => site_name()]),
+                t('If this was not you, contact support immediately.'),
+            ],
         ], security: true);
         if (current_user() !== null) {
             logout_user();
             start_session();
         }
-        flash('success', 'Password updated. You can sign in with your new password.');
+        flash('success', t('Password updated. You can sign in with your new password.'));
         redirect(url('login.php'));
     } catch (AppError $e) {
         $error = $e->getMessage();
@@ -28,4 +32,4 @@ if (is_post() && $member !== null) {
     }
 }
 
-render('auth/reset', ['title' => 'Choose a new password', 'error' => $error, 'member' => $member, 'token' => $token], 'auth');
+render('auth/reset', ['title' => t('Choose a new password'), 'error' => $error, 'member' => $member, 'token' => $token], 'auth');

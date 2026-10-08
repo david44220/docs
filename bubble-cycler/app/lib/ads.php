@@ -80,22 +80,22 @@ function ad_view_for_purchase(int $userId, string $token): ?array
         if (ad_pick_campaign($userId, false) === null) {
             return null;
         }
-        throw new AppError('Please watch the sponsored message first — it unlocks your purchase.');
+        throw new AppError(t('Please watch the sponsored message first — it unlocks your purchase.'));
     }
     $view = row('SELECT * FROM ad_views WHERE token = ? AND user_id = ? FOR UPDATE', [$token, $userId]);
     if ($view === null) {
-        throw new AppError('We could not find your ad session. Please watch the sponsored message again.');
+        throw new AppError(t('We could not find your ad session. Please watch the sponsored message again.'));
     }
     if ($view['used_at'] !== null) {
-        throw new AppError('That sponsored message already unlocked a purchase. Please watch the next one.');
+        throw new AppError(t('That sponsored message already unlocked a purchase. Please watch the next one.'));
     }
     $elapsed = time() - utc_ts($view['started_at']);
     $seconds = max(0, setting_int('ad_seconds'));
     if ($elapsed < $seconds) {
-        throw new AppError(sprintf('Please keep watching — your purchase unlocks in %ds.', $seconds - $elapsed));
+        throw new AppError(t('Please keep watching — your purchase unlocks in {n}s.', ['n' => num($seconds - $elapsed)]));
     }
     if ($elapsed > max(60, setting_int('ad_view_ttl'))) {
-        throw new AppError('Your ad session expired. Please watch the sponsored message again.');
+        throw new AppError(t('Your ad session expired. Please watch the sponsored message again.'));
     }
     return $view;
 }
@@ -190,19 +190,19 @@ function campaign_clean(array $input): array
     $cta = trim((string) ($input['cta_label'] ?? '')) ?: 'Visit site';
 
     if (mb_strlen($title) < 3 || mb_strlen($title) > 80) {
-        throw new AppError('The headline must be 3 to 80 characters long.');
+        throw new AppError(t('The headline must be 3 to 80 characters long.'));
     }
     if (mb_strlen($description) > 220) {
-        throw new AppError('The description can be at most 220 characters long.');
+        throw new AppError(t('The description can be at most 220 characters long.'));
     }
     if (!valid_http_url($url)) {
-        throw new AppError('Enter a valid destination URL starting with http:// or https://');
+        throw new AppError(t('Enter a valid destination URL starting with http:// or https://'));
     }
     if ($image !== '' && !valid_http_url($image, true)) {
-        throw new AppError('The banner image must be an https:// URL (JPG, PNG, WebP or GIF).');
+        throw new AppError(t('The banner image must be an https:// URL (JPG, PNG, WebP or GIF).'));
     }
     if (mb_strlen($cta) > 30) {
-        throw new AppError('The button label can be at most 30 characters long.');
+        throw new AppError(t('The button label can be at most 30 characters long.'));
     }
     return [
         'title'       => $title,
@@ -220,7 +220,7 @@ function member_campaign(int $userId, int $campaignId, bool $lock = false): arra
         [$campaignId, $userId]
     );
     if ($campaign === null) {
-        throw new AppError('Campaign not found.');
+        throw new AppError(t('Campaign not found.'));
     }
     return $campaign;
 }
@@ -230,7 +230,7 @@ function campaign_create(int $userId, array $input, int $credits): int
     $data = campaign_clean($input);
     $minimum = max(1, setting_int('min_campaign_credits'));
     if ($credits < $minimum) {
-        throw new AppError(sprintf('Fund your campaign with at least %s.', plural($minimum, 'credit')));
+        throw new AppError(tn('Fund your campaign with at least {n} credit.', 'Fund your campaign with at least {n} credits.', $minimum));
     }
     return tx(function () use ($userId, $data, $credits): int {
         $status = setting_bool('campaign_approval') ? 'pending' : 'active';
@@ -266,7 +266,7 @@ function campaign_update(int $userId, int $campaignId, array $input): void
 function campaign_add_credits(int $userId, int $campaignId, int $credits): void
 {
     if ($credits < 1) {
-        throw new AppError('Enter how many credits to add.');
+        throw new AppError(t('Enter how many credits to add.'));
     }
     tx(function () use ($userId, $campaignId, $credits): void {
         $campaign = member_campaign($userId, $campaignId, false);
@@ -288,7 +288,7 @@ function campaign_toggle(int $userId, int $campaignId): string
         $next = match ($campaign['status']) {
             'active' => 'paused',
             'paused' => 'active',
-            default  => throw new AppError('Only running or paused campaigns can be paused or resumed.'),
+            default  => throw new AppError(t('Only running or paused campaigns can be paused or resumed.')),
         };
         q('UPDATE ad_campaigns SET status = ?, updated_at = ? WHERE id = ?', [$next, now(), $campaignId]);
         return $next;
@@ -319,12 +319,12 @@ function campaign_delete(int $userId, int $campaignId): int
 function admin_campaign_set_status(int $adminId, int $campaignId, string $status, string $note = ''): void
 {
     if (!in_array($status, ['active', 'paused', 'rejected'], true)) {
-        throw new AppError('Unknown campaign status.');
+        throw new AppError(t('Unknown campaign status.'));
     }
     tx(function () use ($adminId, $campaignId, $status, $note): void {
         $campaign = row('SELECT * FROM ad_campaigns WHERE id = ? FOR UPDATE', [$campaignId]);
         if ($campaign === null) {
-            throw new AppError('Campaign not found.');
+            throw new AppError(t('Campaign not found.'));
         }
         if ($status === 'active' && (int) $campaign['is_house'] === 0 && (int) $campaign['credits_remaining'] <= 0) {
             $status = 'completed';
@@ -342,7 +342,7 @@ function admin_campaign_delete(int $adminId, int $campaignId): void
     tx(function () use ($adminId, $campaignId): void {
         $campaign = row('SELECT * FROM ad_campaigns WHERE id = ?', [$campaignId]);
         if ($campaign === null) {
-            throw new AppError('Campaign not found.');
+            throw new AppError(t('Campaign not found.'));
         }
         if ((int) $campaign['is_house'] === 0 && $campaign['user_id'] !== null) {
             campaign_delete((int) $campaign['user_id'], $campaignId);
@@ -366,7 +366,7 @@ function house_ad_save(int $adminId, ?int $campaignId, array $input, string $sta
     }
     $existing = row('SELECT id FROM ad_campaigns WHERE id = ? AND is_house = 1', [$campaignId]);
     if ($existing === null) {
-        throw new AppError('House ad not found.');
+        throw new AppError(t('House ad not found.'));
     }
     update_row('ad_campaigns', $campaignId, $data + ['status' => $status, 'updated_at' => now()]);
     admin_log($adminId, 'house_ad.update', sprintf('Updated house ad #%d “%s”', $campaignId, $data['title']));

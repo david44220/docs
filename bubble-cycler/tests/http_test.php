@@ -259,7 +259,8 @@ $fr = (new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Langua
 check($fr->has('<html lang="fr">') && $fr->has('Une autre') && $fr->has('orbite.'), 'landing in French for a French browser');
 $en = (new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Language: en-US,en;q=0.9']);
 check($en->has('<html lang="en">') && $en->has('A different') && $en->has('orbit.'), 'landing in English for an English browser');
-check((new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Language: de-DE'])->has('<html lang="fr">'), 'French for every other browser (the mockup rule)');
+check((new Browser($base))->send('GET', 'index.php', null, true, ['Accept-Language: de-DE'])->has('<html lang="en">'), 'English for every other browser');
+check((new Browser($base))->get('index.php')->has('<html lang="en">'), 'English when the browser sends no language');
 check($en->has('160%') && $fr->has('160 %'), 'target ROI computed from the settings');
 check($en->has('50 advertising credits') && $fr->has('50 crédits publicitaires'), 'ad credits per bubble from the settings');
 check($en->has('assets/css/fonts.css') && $en->has('assets/css/cosmic.css') && $en->has('assets/js/landing.js') && !$en->has('assets/css/app.css'), 'landing loads the design files only');
@@ -317,7 +318,7 @@ $alice->logout();
 $alice->login('ALICE@example.com', TEST_PASSWORD, '/deposit.php');
 check(str_ends_with($alice->url, '/deposit.php'), 'email sign-in returns to the requested page');
 $alice->get('index.php');
-check($alice->has('Mon espace') && $alice->has('href="/dashboard.php"') && $alice->has('href="/buy.php"') && !$alice->has('href="/register.php"'), 'landing leads a signed-in member to the account');
+check($alice->has('My account') && $alice->has('href="/dashboard.php"') && $alice->has('href="/buy.php"') && !$alice->has('href="/register.php"'), 'landing leads a signed-in member to the account');
 
 /* -------------------------------------------------------------------------
  * Admin two-factor
@@ -564,6 +565,67 @@ check(str_ends_with($anon->url, '/dashboard.php'), 'member signs in with the new
 $anon->logout();
 $anon->get('reset.php?token=' . ($m[1] ?? ''));
 check($anon->has('invalid or has expired') || !$anon->has('name="password"'), 'reset link works only once');
+
+/* -------------------------------------------------------------------------
+ * Languages: English by default, French for France and French browsers
+ * ---------------------------------------------------------------------- */
+
+echo "== languages\n";
+/**
+ * A first visit to the sign-in page with the given request headers.
+ *
+ * @param list<string> $headers
+ */
+function first_visit(string $base, array $headers = []): Browser
+{
+    return (new Browser($base))->send('GET', 'login.php', null, true, $headers);
+}
+$visit = static fn (string ...$headers): Browser => first_visit($base, array_values($headers));
+check($visit()->has('<html lang="en">'), 'English by default');
+check($visit('Accept-Language: de-DE,de;q=0.9')->has('<html lang="en">'), 'English for browsers in other languages');
+$french = $visit('Accept-Language: fr-FR,fr;q=0.9,en;q=0.8');
+check($french->has('<html lang="fr">') && $french->has('Se connecter') && $french->has('Mot de passe'), 'French for a French browser');
+eq($french->header('content-language'), 'fr', 'Content-Language header');
+check(str_contains(implode(',', $french->headers['vary'] ?? []), 'Accept-Language'), 'responses vary on Accept-Language');
+check($french->has('id="i18n"') && $french->has('"lang":"fr"') && $french->has('Copié'), 'the browser script receives the French texts');
+check($french->has('href="?lang=en"'), 'switch to English offered');
+check($visit('Accept-Language: en-US,en;q=0.9,fr;q=0.8')->has('<html lang="en">'), 'the browser’s first choice wins');
+check($visit('Accept-Language: de-DE,fr;q=0.7')->has('<html lang="fr">'), 'French when it is the best supported language');
+check($visit('CF-IPCountry: FR', 'Accept-Language: en-US')->has('<html lang="fr">'), 'French for visitors from France');
+check($visit('CF-IPCountry: GP')->has('<html lang="fr">'), 'French for French overseas territories');
+check($visit('CloudFront-Viewer-Country: FR')->has('<html lang="fr">'), 'CloudFront country header understood');
+check($visit('CF-IPCountry: US', 'Accept-Language: en-US')->has('<html lang="en">'), 'English for other countries');
+$picker = new Browser($base);
+$picker->send('GET', 'login.php?lang=en', null, true, ['CF-IPCountry: FR']);
+$picker->send('GET', 'login.php', null, true, ['CF-IPCountry: FR', 'Accept-Language: fr-FR']);
+check($picker->has('<html lang="en">'), 'a language picked by the visitor wins over country and browser');
+$lost = (new Browser($base))->send('GET', 'ad.php?a=unknown', null, true, ['Accept-Language: fr-FR']);
+check($lost->status === 404 && $lost->has('Page introuvable'), 'error pages are translated');
+$terms = (new Browser($base))->send('GET', 'terms.php', null, true, ['Accept-Language: fr-FR']);
+check($terms->has('Fonctionnement des gains') && $terms->has('Les gains des bulles sont financés'), 'legal pages and the default disclaimer are translated');
+
+$alice->get('dashboard.php?lang=fr');
+check($alice->has('<html lang="fr">') && $alice->has('Tableau de bord') && $alice->has('href="?lang=en"'), 'member switches to French');
+eq(val('SELECT lang FROM users WHERE id = ?', [$aliceId]), 'fr', 'the choice is saved on the account');
+$elsewhere = new Browser($base);
+$elsewhere->login('alice', 'Fresh-bubbly-26');
+check($elsewhere->has('Tableau de bord') && $elsewhere->has('Bon retour, alice'), 'the saved language follows the member to a new device');
+$alice->get('transactions.php');
+check($alice->has('Achat de bulles') && $alice->has('achetée') && $alice->has('Solde d’achat'), 'ledger lines are shown in French');
+settings_save(['support_email' => 'support@bubbles.test']);
+$alice->get('deposit.php?method=' . $depositMethod);
+$alice->post('deposit.php', $deposit('25', 'TX-ALICE-FR-01', $png));
+$frDeposit = (int) val("SELECT id FROM deposits WHERE reference = 'TX-ALICE-FR-01'");
+check($frDeposit > 0 && $alice->has('Dépôt n° ' . $frDeposit . ' envoyé'), 'French confirmation after a deposit');
+$adminMail = (string) strstr(mail_log_text(), 'TX-ALICE-FR-01', true);
+check(str_contains(substr($adminMail, -300), 'declared a deposit of'), 'the admin email stays in the admin’s language');
+$admin->post('admin/deposits.php', ['id' => (string) $frDeposit, 'action' => 'approve', 'credit' => '', 'note' => '']);
+check(str_contains(mail_log_text(), 'Votre dépôt a été approuvé'), 'the member is emailed in French');
+eq(with_lang('fr', static fn (): string => stored_text('Bubbles #3–#5 bought')), 'Bulles n° 3 à 5 achetées', 'stored English texts are translated when shown');
+eq(with_lang('fr', static fn (): string => money(u('1234.5'))), "1\u{202F}234,50\u{00A0}$", 'French money format');
+eq(with_lang('fr', static fn (): string => fmt_date('2026-10-08 12:00:00', 'M j, Y')), '8 oct. 2026', 'French dates');
+$alice->get('dashboard.php?lang=en');
+eq(val('SELECT lang FROM users WHERE id = ?', [$aliceId]), 'en', 'member switches back to English');
 
 /* -------------------------------------------------------------------------
  * Admin panel

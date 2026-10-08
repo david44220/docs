@@ -11,14 +11,14 @@ $user = current_user();
 
 if ($action === 'complete') {
     if (!is_post()) {
-        json_response(['ok' => false, 'error' => 'Method not allowed'], 405);
+        json_response(['ok' => false, 'error' => t('Method not allowed')], 405);
     }
     if ($user === null) {
-        json_response(['ok' => false, 'error' => 'Please sign in again.'], 401);
+        json_response(['ok' => false, 'error' => t('Please sign in again.')], 401);
     }
     $token = post('token');
     if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
-        json_response(['ok' => false, 'error' => 'Invalid ad session.'], 422);
+        json_response(['ok' => false, 'error' => t('Invalid ad session.')], 422);
     }
     $ok = ad_view_complete((int) $user['id'], $token);
     json_response(['ok' => $ok], $ok ? 200 : 409);

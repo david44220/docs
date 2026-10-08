@@ -3,7 +3,8 @@ require __DIR__ . '/../../app/bootstrap.php';
 
 $admin = require_admin();
 $aid = (int) $admin['id'];
-$statuses = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'];
+$filterNames = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All']; // English: stored in the audit log
+$statuses = array_map(static fn (string $name): string => t($name), $filterNames);
 $status = array_key_exists(query('status'), $statuses) ? query('status') : 'pending';
 
 if (is_post()) {
@@ -13,13 +14,13 @@ if (is_post()) {
             $creditText = post('credit');
             $credit = $creditText === '' ? null : to_payment_units($creditText);
             if ($creditText !== '' && $credit === null) {
-                throw new AppError('Enter a valid amount to credit.');
+                throw new AppError(t('Enter a valid amount to credit.'));
             }
             deposit_approve($aid, $id, $credit, post('note'));
-            flash('success', sprintf('Deposit #%d approved and credited.', $id));
+            flash('success', t('Deposit #{id} approved and credited.', ['id' => num($id)]));
         } elseif (post('action') === 'reject') {
             deposit_reject($aid, $id, post('note'));
-            flash('success', sprintf('Deposit #%d rejected.', $id));
+            flash('success', t('Deposit #{id} rejected.', ['id' => num($id)]));
         }
     } catch (AppError $e) {
         flash('error', $e->getMessage());
@@ -42,7 +43,7 @@ if ($search !== '') {
 }
 $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 if (query('export') === 'csv') {
-    admin_log($aid, 'export.deposits', 'Exported deposits (' . $statuses[$status] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
+    admin_log($aid, 'export.deposits', 'Exported deposits (' . $filterNames[$status] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
     csv_export('deposits', "SELECT d.*, u.username, u.email FROM deposits d STRAIGHT_JOIN users u ON u.id = d.user_id $sqlWhere ORDER BY d.id", $params, [
         'ID'              => static fn (array $d) => $d['id'],
         'Created (UTC)'   => static fn (array $d) => $d['created_at'],
@@ -85,8 +86,8 @@ foreach (rows('SELECT status, COUNT(*) AS n FROM deposits GROUP BY status') as $
 $counts['all'] = array_sum($counts);
 
 render('admin/deposits', [
-    'title'      => 'Deposits',
-    'eyebrow'    => 'Manual deposit review',
+    'title'      => t('Deposits'),
+    'eyebrow'    => t('Manual deposit review'),
     'page'       => 'admin-deposits',
     'admin_area' => true,
     'statuses'   => $statuses,

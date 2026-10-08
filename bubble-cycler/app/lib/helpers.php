@@ -410,7 +410,7 @@ function fmt_date(?string $datetime, string $format = 'M j, Y · H:i'): string
         return '—';
     }
     $date = new DateTimeImmutable($datetime, new DateTimeZone('UTC'));
-    return $date->setTimezone(display_tz())->format($format);
+    return date_local($date->setTimezone(display_tz()), $format);
 }
 
 function time_ago(?string $datetime): string
@@ -420,25 +420,17 @@ function time_ago(?string $datetime): string
         return '—';
     }
     $diff = time() - $ts;
-    if ($diff < 45) {
-        return 'just now';
-    }
-    $units = [
-        ['year', 31536000], ['month', 2592000], ['week', 604800],
-        ['day', 86400], ['hour', 3600], ['minute', 60],
-    ];
-    foreach ($units as [$name, $seconds]) {
-        if ($diff >= $seconds) {
-            $count = (int) floor($diff / $seconds);
-            return $count . ' ' . $name . ($count > 1 ? 's' : '') . ' ago';
-        }
-    }
-    return 'just now';
+    $in = static fn (int $seconds): int => intdiv($diff, $seconds);
+    return match (true) {
+        $diff >= 31536000 => tn('{n} year ago', '{n} years ago', $in(31536000)),
+        $diff >= 2592000  => tn('{n} month ago', '{n} months ago', $in(2592000)),
+        $diff >= 604800   => tn('{n} week ago', '{n} weeks ago', $in(604800)),
+        $diff >= 86400    => tn('{n} day ago', '{n} days ago', $in(86400)),
+        $diff >= 3600     => tn('{n} hour ago', '{n} hours ago', $in(3600)),
+        $diff >= 60       => tn('{n} minute ago', '{n} minutes ago', $in(60)),
+        default           => t('just now'),
+    };
 }
-
-/* -------------------------------------------------------------------------
- * Views
- * ---------------------------------------------------------------------- */
 
 function view_capture(string $view, array $data = []): string
 {
@@ -528,11 +520,6 @@ function url_host(string $url): string
 {
     $host = (string) parse_url($url, PHP_URL_HOST);
     return preg_replace('/^www\./i', '', $host) ?: $url;
-}
-
-function plural(int $count, string $singular, ?string $plural = null): string
-{
-    return number_format($count) . ' ' . ($count === 1 ? $singular : ($plural ?? $singular . 's'));
 }
 
 function enforce_maintenance(): void

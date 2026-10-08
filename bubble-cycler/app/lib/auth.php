@@ -61,10 +61,10 @@ function require_admin(): array
         redirect(url('login.php', ['next' => (string) ($_SERVER['REQUEST_URI'] ?? '')]));
     }
     if ($user['role'] !== 'admin') {
-        abort(403, 'This area is reserved for administrators.');
+        abort(403, t('This area is reserved for administrators.'));
     }
     if (admin_needs_2fa_setup($user)) {
-        flash('info', 'Protect the admin panel first: set up two-factor authentication.');
+        flash('info', t('Protect the admin panel first: set up two-factor authentication.'));
         redirect(url('two-factor.php'));
     }
     return $user;
@@ -83,7 +83,13 @@ function login_user(array $user): void
     $_SESSION['uid'] = (int) $user['id'];
     $_SESSION['ufp'] = session_fingerprint($user);
     $_SESSION['last_seen'] = time();
-    q('UPDATE users SET last_login_at = ?, last_ip = ? WHERE id = ?', [now(), client_ip(), (int) $user['id']]);
+    // A member's saved language wins over browser detection on a new device;
+    // a language picked on this device (cookie) wins over both.
+    $saved = $user['lang'] ?? null;
+    if (is_string($saved) && isset(LANGUAGES[$saved]) && !isset($_COOKIE[LANG_COOKIE])) {
+        lang_set($saved);
+    }
+    q('UPDATE users SET last_login_at = ?, last_ip = ?, lang = COALESCE(lang, ?) WHERE id = ?', [now(), client_ip(), lang(), (int) $user['id']]);
 }
 
 function logout_user(): void
@@ -114,7 +120,7 @@ function check_credentials(string $login, string $password): array
     $byIp = (int) val('SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND attempted_at > ?', [$ip, $since]);
     $byAccount = $login === '' ? 0 : (int) val('SELECT COUNT(*) FROM login_attempts WHERE login = ? AND attempted_at > ?', [mb_substr($login, 0, 190), $since]);
     if ($byIp >= LOGIN_MAX_FAILURES_IP || $byAccount >= LOGIN_MAX_FAILURES_ACCOUNT) {
-        throw new AppError('Too many failed sign-in attempts. Please wait 15 minutes and try again.');
+        throw new AppError(t('Too many failed sign-in attempts. Please wait 15 minutes and try again.'));
     }
 
     $user = $login === '' ? null : row('SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1', [$login, $login]);
@@ -124,10 +130,10 @@ function check_credentials(string $login, string $password): array
 
     if (!$valid) {
         insert('login_attempts', ['ip' => $ip, 'login' => mb_substr($login, 0, 190), 'attempted_at' => now()]);
-        throw new AppError('Incorrect username/email or password.');
+        throw new AppError(t('Incorrect username/email or password.'));
     }
     if ($user['status'] !== 'active') {
-        throw new AppError('This account is suspended. Please contact support.');
+        throw new AppError(t('This account is suspended. Please contact support.'));
     }
     if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
         $user['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
@@ -157,7 +163,7 @@ function attempt_login(string $login, string $password): array
 {
     $user = check_credentials($login, $password);
     if (user_has_2fa($user)) {
-        throw new AppError('This account uses two-factor authentication.');
+        throw new AppError(t('This account uses two-factor authentication.'));
     }
     login_user($user);
     return $user;
@@ -205,11 +211,11 @@ function complete_two_factor(string $code): string
 {
     $user = pending_two_factor();
     if ($user === null) {
-        throw new AppError('Your sign-in expired. Please enter your password again.');
+        throw new AppError(t('Your sign-in expired. Please enter your password again.'));
     }
-    rate_limit('2fa', (string) $user['id'], 6, LOGIN_WINDOW_SECONDS, 'Too many wrong codes. Please wait 15 minutes and sign in again.');
+    rate_limit('2fa', (string) $user['id'], 6, LOGIN_WINDOW_SECONDS, t('Too many wrong codes. Please wait 15 minutes and sign in again.'));
     if (!user_verify_2fa((int) $user['id'], $code)) {
-        throw new AppError('That code is not valid. Check your authenticator app and try again.');
+        throw new AppError(t('That code is not valid. Check your authenticator app and try again.'));
     }
     $next = (string) ($_SESSION['2fa']['next'] ?? '');
     login_user($user);
@@ -223,29 +229,29 @@ function complete_two_factor(string $code): string
 function validate_username(string $username): void
 {
     if (!preg_match('/^[A-Za-z0-9_]{3,20}$/', $username)) {
-        throw new AppError('Username must be 3–20 characters: letters, numbers and underscores only.');
+        throw new AppError(t('Username must be 3–20 characters: letters, numbers and underscores only.'));
     }
 }
 
 function validate_password(string $password, string $username = ''): void
 {
     if (mb_strlen($password) < 8) {
-        throw new AppError('Password must be at least 8 characters long.');
+        throw new AppError(t('Password must be at least 8 characters long.'));
     }
     if (mb_strlen($password) > 200) {
-        throw new AppError('Password is too long.');
+        throw new AppError(t('Password is too long.'));
     }
     $lower = mb_strtolower($password);
     $containsName = mb_strlen($username) >= 4 && str_contains($lower, mb_strtolower($username));
     if (in_array($lower, COMMON_PASSWORDS, true) || $containsName) {
-        throw new AppError('This password is too easy to guess. Please choose another one.');
+        throw new AppError(t('This password is too easy to guess. Please choose another one.'));
     }
 }
 
 function validate_email(string $email): void
 {
     if (mb_strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new AppError('Please enter a valid email address.');
+        throw new AppError(t('Please enter a valid email address.'));
     }
 }
 
@@ -256,13 +262,13 @@ function register_user(string $username, string $email, string $password, ?int $
     validate_email($email);
     validate_password($password, $username);
     if ($role !== 'admin' && in_array(strtolower($username), RESERVED_USERNAMES, true)) {
-        throw new AppError('This username is reserved. Please choose another one.');
+        throw new AppError(t('This username is reserved. Please choose another one.'));
     }
     if (val('SELECT id FROM users WHERE username = ?', [$username]) !== null) {
-        throw new AppError('This username is already taken.');
+        throw new AppError(t('This username is already taken.'));
     }
     if (val('SELECT id FROM users WHERE email = ?', [$email]) !== null) {
-        throw new AppError('An account with this email already exists.');
+        throw new AppError(t('An account with this email already exists.'));
     }
     if ($referrerId !== null && val('SELECT id FROM users WHERE id = ?', [$referrerId]) === null) {
         $referrerId = null;
@@ -276,12 +282,13 @@ function register_user(string $username, string $email, string $password, ?int $
             'role'          => $role,
             'referrer_id'   => $referrerId,
             'register_ip'   => PHP_SAPI === 'cli' ? null : client_ip(),
+            'lang'          => lang(),
             'pops_seen_at'  => now(),
             'created_at'    => now(),
         ]);
     } catch (PDOException $e) {
         if (is_duplicate_key($e)) {
-            throw new AppError('This username or email is already registered.');
+            throw new AppError(t('This username or email is already registered.'));
         }
         throw $e;
     }
@@ -318,7 +325,7 @@ function referral_username(): string
 function password_reset_request(string $email): void
 {
     validate_email($email);
-    rate_limit('reset-ip', client_ip(), 5, 3600, 'Too many reset requests. Please try again in an hour.');
+    rate_limit('reset-ip', client_ip(), 5, 3600, t('Too many reset requests. Please try again in an hour.'));
     $user = row("SELECT id, username, status FROM users WHERE email = ?", [mb_strtolower($email)]);
     if ($user === null || $user['status'] !== 'active' || rate_count('reset-user', (string) $user['id'], 3600) >= 3) {
         return;
@@ -332,17 +339,16 @@ function password_reset_request(string $email): void
         'ip'         => client_ip(),
         'created_at' => now(),
     ]);
-    notify_email(
-        $email,
-        'Reset your ' . site_name() . ' password',
-        'Reset your password',
-        [
-            'Hi ' . $user['username'] . ', someone (hopefully you) asked to reset the password of your account.',
-            'The link below works once and expires in one hour. If you did not ask for it, ignore this email: your password stays the same.',
+    // In the language of the page the request came from.
+    notify_email($email, lang(), static fn (): array => [
+        'subject' => t('Reset your {site} password', ['site' => site_name()]),
+        'title'   => t('Reset your password'),
+        'lines'   => [
+            t('Hi {user}, someone (hopefully you) asked to reset the password of your account.', ['user' => $user['username']]),
+            t('The link below works once and expires in one hour. If you did not ask for it, ignore this email: your password stays the same.'),
         ],
-        'reset.php?token=' . $token,
-        'Choose a new password'
-    );
+        'button'  => [t('Choose a new password'), 'reset.php?token=' . $token],
+    ]);
 }
 
 /**
@@ -367,11 +373,11 @@ function password_reset_complete(string $token, string $password, string $confir
     return tx(function () use ($token, $password, $confirm): array {
         $user = password_reset_user($token, true);
         if ($user === null) {
-            throw new AppError('This reset link is invalid or has expired. Please request a new one.');
+            throw new AppError(t('This reset link is invalid or has expired. Please request a new one.'));
         }
         validate_password($password, $user['username']);
         if ($password !== $confirm) {
-            throw new AppError('The two passwords do not match.');
+            throw new AppError(t('The two passwords do not match.'));
         }
         q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), (int) $user['id']]);
         // Invalidate every other outstanding link for this member.

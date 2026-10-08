@@ -24,19 +24,19 @@ $totalExpired = array_sum(array_column($series, 'expired'));
 <figure class="chart" data-chart>
     <figcaption class="chart__head">
         <div>
-            <h2 class="card__title">Bubbles per day</h2>
-            <p class="card__sub">Last <?= count($series) ?> days (UTC) · <?= number_format($totalBought) ?> bought · <?= number_format($totalExpired) ?> expired</p>
+            <h2 class="card__title"><?= e(t('Bubbles per day')) ?></h2>
+            <p class="card__sub"><?= e(t('Last {days} days (UTC) · {bought} bought · {expired} expired', ['days' => num(count($series)), 'bought' => num($totalBought), 'expired' => num($totalExpired)])) ?></p>
         </div>
         <ul class="chart__legend">
-            <li><i class="chart__key chart__key--1"></i>Bought</li>
-            <li><i class="chart__key chart__key--2"></i>Expired</li>
+            <li><i class="chart__key chart__key--1"></i><?= e(t('Bought')) ?></li>
+            <li><i class="chart__key chart__key--2"></i><?= e(t('Expired')) ?></li>
         </ul>
     </figcaption>
 
     <div class="chart__body">
         <div class="chart__plot">
             <?php foreach ($ticks as $tick): ?>
-                <span class="chart__grid" style="bottom: <?= round($tick / $top * 100, 3) ?>%"><span class="chart__tick"><?= number_format($tick) ?></span></span>
+                <span class="chart__grid" style="bottom: <?= round($tick / $top * 100, 3) ?>%"><span class="chart__tick"><?= e(num($tick)) ?></span></span>
             <?php endforeach; ?>
             <div class="chart__cols">
                 <?php foreach ($series as $i => $point):
@@ -46,7 +46,7 @@ $totalExpired = array_sum(array_column($series, 'expired'));
                          data-tip-title="<?= e($label) ?>"
                          data-tip-bought="<?= (int) $point['bought'] ?>"
                          data-tip-expired="<?= (int) $point['expired'] ?>"
-                         aria-label="<?= e($label . ': ' . $point['bought'] . ' bought, ' . $point['expired'] . ' expired') ?>">
+                         aria-label="<?= e(t('{day}: {bought} bought, {expired} expired', ['day' => $label, 'bought' => num($point['bought']), 'expired' => num($point['expired'])])) ?>">
                         <span class="chart__bar chart__bar--1" style="height: <?= round($point['bought'] / $top * 100, 3) ?>%"></span>
                         <span class="chart__bar chart__bar--2" style="height: <?= round($point['expired'] / $top * 100, 3) ?>%"></span>
                     </div>
@@ -63,13 +63,13 @@ $totalExpired = array_sum(array_column($series, 'expired'));
     <div class="chart__tooltip" data-chart-tooltip hidden></div>
 
     <details class="chart__table">
-        <summary>Show as table</summary>
+        <summary><?= e(t('Show as table')) ?></summary>
         <div class="table-wrap">
             <table class="table table--compact">
-                <thead><tr><th>Day</th><th class="num">Bought</th><th class="num">Expired</th></tr></thead>
+                <thead><tr><th><?= e(t('Day')) ?></th><th class="num"><?= e(t('Bought')) ?></th><th class="num"><?= e(t('Expired')) ?></th></tr></thead>
                 <tbody>
                 <?php foreach (array_reverse($series) as $point): ?>
-                    <tr><td><?= e(fmt_date($point['day'] . ' 12:00:00', 'D, M j')) ?></td><td class="num"><?= number_format($point['bought']) ?></td><td class="num"><?= number_format($point['expired']) ?></td></tr>
+                    <tr><td><?= e(fmt_date($point['day'] . ' 12:00:00', 'D, M j')) ?></td><td class="num"><?= e(num($point['bought'])) ?></td><td class="num"><?= e(num($point['expired'])) ?></td></tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>

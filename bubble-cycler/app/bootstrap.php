@@ -23,6 +23,7 @@ date_default_timezone_set('UTC');
 mb_internal_encoding('UTF-8');
 
 require APP_DIR . '/lib/helpers.php';
+require APP_DIR . '/lib/i18n.php';
 require APP_DIR . '/lib/db.php';
 require APP_DIR . '/lib/money.php';
 require APP_DIR . '/lib/settings.php';
@@ -50,6 +51,9 @@ if (PHP_SAPI === 'cli') {
     return;
 }
 
+// A first guess from the request alone, so that even early error pages are in the visitor's language.
+lang_set(lang_detect(null));
+
 if (!defined('INSTALLER') && !is_installed()) {
     redirect(url('install.php'));
 }
@@ -69,16 +73,17 @@ if (!defined('INSTALLER') && migrations_pending()) {
 if (!defined('STATELESS')) {
     start_session();
 }
+lang_boot(is_installed() ? current_user() : null);
 send_security_headers();
 
 if (is_post() && !defined('STATELESS')) {
     // An upload bigger than post_max_size empties $_POST: say so instead of
     // reporting a confusing CSRF failure.
     if ($_POST === [] && $_FILES === [] && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-        abort(413, 'The data you sent is too large. Please use a smaller file.');
+        abort(413, t('The data you sent is too large. Please use a smaller file.'));
     }
     if (!csrf_valid()) {
-        abort(419, 'Your session expired. Go back, refresh the page and try again.');
+        abort(419, t('Your session expired. Go back, refresh the page and try again.'));
     }
 }
 

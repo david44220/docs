@@ -8,6 +8,8 @@ header('Cache-Control: public, max-age=86400');
 echo json_encode([
     'name'             => site_name(),
     'short_name'       => mb_substr(site_name(), 0, 12),
+    'description'      => t('Bubble cycler game with a built-in advertising network.'),
+    'lang'             => lang(),
     'start_url'        => url('dashboard.php'),
     'scope'            => url(''),
     'display'          => 'standalone',

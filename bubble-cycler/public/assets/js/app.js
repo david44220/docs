@@ -10,6 +10,22 @@
   const csrf = () => $('meta[name="csrf-token"]')?.content || '';
   const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* ---------- Language (texts and formats come from the #i18n block) ------- */
+  const I18N = (() => {
+    try { return JSON.parse($('#i18n')?.textContent || '{}'); } catch { return {}; }
+  })();
+  const french = I18N.lang === 'fr';
+  /** Translate an English text and fill its {placeholders} (mirrors t() in PHP). */
+  const t = (text, vars = {}) => (I18N.strings?.[text] ?? text)
+    .replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match));
+  /** Whole numbers with the language's thousands separator (mirrors num()). */
+  const fmtNum = (n) => String(Math.trunc(Math.abs(n)))
+    .replace(/\B(?=(\d{3})+(?!\d))/g, french ? '\u202F' : ',')
+    .replace(/^/, n < 0 ? '-' : '');
+  /** Singular / plural (French uses the singular for 0 and 1, mirrors tn()). */
+  const tn = (one, many, n, vars = {}) => t((french ? Math.abs(n) <= 1 : n === 1) ? one : many, { ...vars, n: fmtNum(n) });
+  const fmtPercent = (n) => fmtNum(Math.round(n)) + (french ? '\u202F%' : '%');
+
   /* ---------- Money helpers (mirror money() / to_units() in PHP) ----------- */
   const fmtMoney = (units, symbol = '$') => {
     const negative = units < 0;
@@ -17,7 +33,8 @@
     const whole = Math.floor(scaled / 10000);
     let fraction = String(scaled % 10000).padStart(4, '0').replace(/0+$/, '');
     fraction = fraction.padEnd(2, '0');
-    return (negative ? '−' : '') + symbol + whole.toLocaleString('en-US') + '.' + fraction;
+    const text = french ? `${fmtNum(whole)},${fraction}\u00A0${symbol}` : `${symbol}${fmtNum(whole)}.${fraction}`;
+    return (negative ? '−' : '') + text;
   };
   const parseMoney = (text) => {
     let s = String(text || '').replace(/[\s $€£]/g, '');
@@ -26,7 +43,6 @@
     if (!m || (m[1] === '' && (m[2] || '') === '')) return null;
     return Number(m[1] || 0) * 1e6 + Number((m[2] || '').padEnd(6, '0'));
   };
-  const plural = (n, word) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
   /* ---------- Sidebar (mobile) --------------------------------------------- */
   $$('[data-sidebar-open]').forEach((b) => b.addEventListener('click', () => document.body.classList.add('nav-open')));
@@ -60,7 +76,7 @@
   }));
   $$('[data-file-input]').forEach((input) => input.addEventListener('change', () => {
     const label = input.closest('.file')?.querySelector('[data-file-name]');
-    if (label) label.textContent = input.files?.[0]?.name || label.dataset.default || 'Choose an image';
+    if (label) label.textContent = input.files?.[0]?.name || label.dataset.default || t('Choose an image');
   }));
   $$('[data-count]').forEach((field) => {
     const out = $(`[data-count-for="${field.dataset.count}"]`);
@@ -87,7 +103,7 @@
     }
     const label = $('span', btn);
     const previous = label ? label.textContent : '';
-    if (label) label.textContent = 'Copied!';
+    if (label) label.textContent = t('Copied!');
     btn.classList.add('is-copied');
     setTimeout(() => { if (label) label.textContent = previous; btn.classList.remove('is-copied'); }, 1600);
   }));
@@ -136,7 +152,7 @@
       }
       const secs = Math.ceil(remaining);
       if (num) num.textContent = String(secs);
-      if (text) text.textContent = `${secs}s`;
+      if (text) text.textContent = t('{n}s', { n: fmtNum(secs) });
     };
 
     const unlock = () => {
@@ -155,7 +171,7 @@
         icon.setAttribute('stroke-linejoin', 'round');
         icon.innerHTML = '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/>';
         const span = document.createElement('span');
-        span.textContent = 'Thanks for watching — your purchase is unlocked.';
+        span.textContent = t('Thanks for watching — your purchase is unlocked.');
         status.append(icon, span);
       }
       if (submit && submit.classList.contains('is-locked')) {
@@ -219,13 +235,13 @@
       const total = price * q;
       if (out.total) out.total.textContent = fmtMoney(total, symbol);
       if (out.pool) out.pool.textContent = fmtMoney(share * q, symbol);
-      if (out.credits) out.credits.textContent = `+${(credits * q).toLocaleString('en-US')}`;
+      if (out.credits) out.credits.textContent = `+${fmtNum(credits * q)}`;
       if (out.sales) {
         const left = Math.max(0, needed - share * (q - 1));
         const sales = share > 0 ? Math.ceil(left / share) : 0;
-        out.sales.textContent = `~${plural(sales, 'more sale')}`;
+        out.sales.textContent = `~${tn('{n} more sale', '{n} more sales', sales)}`;
       }
-      if (out.label) out.label.textContent = `Buy ${plural(q, 'bubble')} · ${fmtMoney(total, symbol)}`;
+      if (out.label) out.label.textContent = tn('Buy {n} bubble · {amount}', 'Buy {n} bubbles · {amount}', q, { amount: fmtMoney(total, symbol) });
       if (out.warn) out.warn.hidden = balance >= total;
       $$('[data-qty-set]', buy).forEach((chip) => chip.classList.toggle('is-active', Number(chip.dataset.qtySet) === q));
     };
@@ -267,7 +283,9 @@
       }
       const fee = fixed + Math.floor((Math.floor(amount / 10000) * bp + 5000) / 10000) * 10000;
       const net = amount - fee;
-      output.textContent = net > 0 ? fmtMoney(net, symbol) + (fee > 0 ? `  ·  fee ${fmtMoney(fee, symbol)}` : '') : 'Below the fee';
+      output.textContent = net > 0
+        ? (fee > 0 ? t('{amount}  ·  fee {fee}', { amount: fmtMoney(net, symbol), fee: fmtMoney(fee, symbol) }) : fmtMoney(net, symbol))
+        : t('Below the fee');
       output.classList.toggle('is-bad', net <= 0);
     };
     input.addEventListener('input', update);
@@ -288,14 +306,14 @@
       initial: $('[data-preview-initial]', editor),
     };
     const host = (value) => {
-      try { return new URL(value).hostname.replace(/^www\./, ''); } catch { return 'yoursite.com'; }
+      try { return new URL(value).hostname.replace(/^www\./, ''); } catch { return t('yoursite.com'); }
     };
     const sync = () => {
       const url = field('url')?.value.trim() || '';
-      preview.title.textContent = field('title')?.value.trim() || 'Your headline';
-      preview.description.textContent = field('description')?.value.trim() || 'Your description appears here.';
+      preview.title.textContent = field('title')?.value.trim() || t('Your headline');
+      preview.description.textContent = field('description')?.value.trim() || t('Your description appears here.');
       preview.domain.textContent = host(url);
-      preview.cta.textContent = field('cta')?.value.trim() || 'Visit site';
+      preview.cta.textContent = field('cta')?.value.trim() || t('Visit site');
       preview.initial.textContent = host(url).charAt(0).toUpperCase();
       const image = field('image')?.value.trim() || '';
       if (/^https:\/\/\S+$/i.test(image)) {
@@ -328,8 +346,11 @@
         platformEl.textContent = fmtMoney(platform, symbol);
         platformEl.classList.toggle('text-red', platform < 0);
       }
-      if (share && target !== null) $('[data-econ-ratio]', econ).textContent = String(Math.round((target / share) * 100) / 100);
-      if (price && target !== null) $('[data-econ-roi]', econ).textContent = `${Math.round((target / price) * 100)}%`;
+      if (share && target !== null) {
+        const ratio = String(Math.round((target / share) * 100) / 100);
+        $('[data-econ-ratio]', econ).textContent = french ? ratio.replace('.', ',') : ratio;
+      }
+      if (price && target !== null) $('[data-econ-roi]', econ).textContent = fmtPercent((target / price) * 100);
     };
     form.addEventListener('input', update);
   }
@@ -338,7 +359,7 @@
   $$('[data-chart]').forEach((chart) => {
     const tip = $('[data-chart-tooltip]', chart);
     if (!tip) return;
-    const series = [['Bought', 'tipBought', 1], ['Expired', 'tipExpired', 2]];
+    const series = [[t('Bought'), 'tipBought', 1], [t('Expired'), 'tipExpired', 2]];
     const show = (col) => {
       tip.replaceChildren();
       const title = document.createElement('strong');
@@ -351,7 +372,7 @@
         const swatch = document.createElement('i');
         swatch.className = `chart__tip-key chart__tip-key--${n}`;
         const val = document.createElement('b');
-        val.textContent = Number(col.dataset[key] || 0).toLocaleString('en-US');
+        val.textContent = fmtNum(Number(col.dataset[key] || 0));
         const name = document.createElement('span');
         name.textContent = label;
         row.append(swatch, val, name);
@@ -433,7 +454,7 @@
           bubble.classList.add('is-filling');
           const strong = $('.bubble__text strong', bubble);
           const small = $('.bubble__text small', bubble);
-          if (strong) strong.textContent = bubble.dataset.liveHead === 'percent' ? `${Math.round(head.fill)}%` : head.label;
+          if (strong) strong.textContent = bubble.dataset.liveHead === 'percent' ? fmtPercent(head.fill) : head.label;
           if (small) small.textContent = `${head.filled} / ${head.target}`;
         });
       } catch { /* offline — keep the last render */ }

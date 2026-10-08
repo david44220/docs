@@ -22,7 +22,7 @@ if (is_post()) {
     $form = ['amount' => post('amount'), 'reference' => post('reference'), 'sender' => post('sender')];
     try {
         $id = deposit_create($uid, (int) post('method_id'), $form['amount'], $form['reference'], $form['sender'], $_FILES['proof'] ?? null);
-        flash('success', sprintf('Deposit #%d submitted. Your purchase balance is credited as soon as an admin verifies the payment.', $id));
+        flash('success', t('Deposit #{id} submitted. Your purchase balance is credited as soon as an admin verifies the payment.', ['id' => num($id)]));
         redirect(url('deposit.php'));
     } catch (AppError $e) {
         $error = $e->getMessage();
@@ -36,8 +36,8 @@ $history = rows(
 );
 
 render('user/deposit', [
-    'title'   => 'Deposit',
-    'eyebrow' => 'Fund your purchase balance',
+    'title'   => t('Deposit'),
+    'eyebrow' => t('Fund your purchase balance'),
     'page'    => 'deposit',
     'user'    => $user,
     'methods' => $methods,

@@ -128,7 +128,8 @@ function bubble_html(array $o = []): string
     return $html . '</div>';
 }
 
-function status_badge(string $status, ?string $label = null): string
+/** $context lets the label agree with what it describes in French: 'bubble', 'campaign'. */
+function status_badge(string $status, ?string $label = null, string $context = ''): string
 {
     $tone = match ($status) {
         'pending'                              => 'amber',
@@ -138,7 +139,36 @@ function status_badge(string $status, ?string $label = null): string
         'rising'                               => 'blue',
         default                                => 'slate',
     };
-    return '<span class="badge badge--' . $tone . '"><i></i>' . e($label ?? ucfirst($status)) . '</span>';
+    return '<span class="badge badge--' . $tone . '"><i></i>' . e($label ?? status_label($status, $context)) . '</span>';
+}
+
+/** Status names (English source texts, translated by status_label()). */
+const STATUS_LABELS = [
+    'pending'   => 'Pending',
+    'approved'  => 'Approved',
+    'paid'      => 'Paid',
+    'active'    => 'Active',
+    'filling'   => 'Filling',
+    'rejected'  => 'Rejected',
+    'banned'    => 'Banned',
+    'expired'   => 'Expired',
+    'completed' => 'Completed',
+    'admin'     => 'Admin',
+    'rising'    => 'Rising',
+    'cancelled' => 'Cancelled',
+    'paused'    => 'Paused',
+    'inactive'  => 'Inactive',
+    'user'      => 'Member',
+];
+
+/** A status in the current language; $context picks the French agreement ('bubble', 'campaign'). */
+function status_label(string $status, string $context = ''): string
+{
+    $label = STATUS_LABELS[$status] ?? null;
+    if ($label === null) {
+        return ucfirst($status);
+    }
+    return $context !== '' ? tc($context, $label) : t($label);
 }
 
 function method_avatar(array $method, string $size = ''): string
@@ -180,9 +210,9 @@ function pagination_links(array $p): string
         return '';
     }
     $page = $p['page'];
-    $html = '<nav class="pager" aria-label="Pagination">';
+    $html = '<nav class="pager" aria-label="' . e(t('Pagination')) . '">';
     $html .= $page > 1
-        ? '<a class="pager__btn" href="' . e(current_url_with(['page' => $page - 1])) . '" aria-label="Previous page">' . icon('chevron-left') . '</a>'
+        ? '<a class="pager__btn" href="' . e(current_url_with(['page' => $page - 1])) . '" aria-label="' . e(t('Previous page')) . '">' . icon('chevron-left') . '</a>'
         : '<span class="pager__btn is-disabled">' . icon('chevron-left') . '</span>';
 
     $window = array_unique(array_filter([1, $page - 2, $page - 1, $page, $page + 1, $page + 2, $p['pages']], fn ($n) => $n >= 1 && $n <= $p['pages']));
@@ -193,23 +223,23 @@ function pagination_links(array $p): string
             $html .= '<span class="pager__gap">…</span>';
         }
         $html .= $n === $page
-            ? '<span class="pager__num is-current" aria-current="page">' . $n . '</span>'
-            : '<a class="pager__num" href="' . e(current_url_with(['page' => $n])) . '">' . $n . '</a>';
+            ? '<span class="pager__num is-current" aria-current="page">' . e(num($n)) . '</span>'
+            : '<a class="pager__num" href="' . e(current_url_with(['page' => $n])) . '">' . e(num($n)) . '</a>';
         $previous = $n;
     }
 
     $html .= $page < $p['pages']
-        ? '<a class="pager__btn" href="' . e(current_url_with(['page' => $page + 1])) . '" aria-label="Next page">' . icon('chevron-right') . '</a>'
+        ? '<a class="pager__btn" href="' . e(current_url_with(['page' => $page + 1])) . '" aria-label="' . e(t('Next page')) . '">' . icon('chevron-right') . '</a>'
         : '<span class="pager__btn is-disabled">' . icon('chevron-right') . '</span>';
-    return $html . '<span class="pager__info">' . number_format($p['total']) . ' total</span></nav>';
+    return $html . '<span class="pager__info">' . e(t('{n} total', ['n' => num($p['total'])])) . '</span></nav>';
 }
 
 /** Filter tabs: [key => label], the active key and the query parameter they set. */
 function filter_tabs(array $tabs, string $active, string $param = 'status', array $counts = []): string
 {
-    $html = '<nav class="tabs" aria-label="Filter">';
+    $html = '<nav class="tabs" aria-label="' . e(t('Filter')) . '">';
     foreach ($tabs as $key => $label) {
-        $count = isset($counts[$key]) ? ' <span class="tabs__count">' . number_format((int) $counts[$key]) . '</span>' : '';
+        $count = isset($counts[$key]) ? ' <span class="tabs__count">' . e(num($counts[$key])) . '</span>' : '';
         $html .= '<a class="tabs__item' . ((string) $key === $active ? ' is-active' : '') . '" href="'
             . e(current_url_with([$param => $key, 'page' => null, 'review' => null, 'edit' => null])) . '">' . e($label) . $count . '</a>';
     }
@@ -220,22 +250,22 @@ function filter_tabs(array $tabs, string $active, string $param = 'status', arra
 function user_nav(): array
 {
     return [
-        'Play' => [
-            ['dashboard', 'dashboard.php', 'Dashboard', 'grid'],
-            ['buy', 'buy.php', 'Buy bubbles', 'plus-circle'],
-            ['bubbles', 'bubbles.php', 'My bubbles', 'bubbles'],
+        t('Play') => [
+            ['dashboard', 'dashboard.php', t('Dashboard'), 'grid'],
+            ['buy', 'buy.php', t('Buy bubbles'), 'plus-circle'],
+            ['bubbles', 'bubbles.php', t('My bubbles'), 'bubbles'],
         ],
-        'Grow' => [
-            ['advertise', 'advertise.php', 'Advertise', 'megaphone'],
-            ['referrals', 'referrals.php', 'Referrals', 'users'],
+        t('Grow') => [
+            ['advertise', 'advertise.php', t('Advertise'), 'megaphone'],
+            ['referrals', 'referrals.php', t('Referrals'), 'users'],
         ],
-        'Wallet' => [
-            ['deposit', 'deposit.php', 'Deposit', 'download'],
-            ['withdraw', 'withdraw.php', 'Withdraw', 'upload'],
-            ['transactions', 'transactions.php', 'History', 'list'],
+        t('Wallet') => [
+            ['deposit', 'deposit.php', t('Deposit'), 'download'],
+            ['withdraw', 'withdraw.php', t('Withdraw'), 'upload'],
+            ['transactions', 'transactions.php', t('History'), 'list'],
         ],
-        'Profile' => [
-            ['account', 'account.php', 'Account', 'user'],
+        t('Profile') => [
+            ['account', 'account.php', t('Account'), 'user'],
         ],
     ];
 }
@@ -244,23 +274,23 @@ function admin_nav(): array
 {
     $counts = admin_pending_counts();
     return [
-        'Overview' => [
-            ['admin', 'admin/index.php', 'Dashboard', 'grid'],
+        t('Overview') => [
+            ['admin', 'admin/index.php', t('Dashboard'), 'grid'],
         ],
-        'Money' => [
-            ['admin-deposits', 'admin/deposits.php', 'Deposits', 'download', $counts['deposits']],
-            ['admin-withdrawals', 'admin/withdrawals.php', 'Withdrawals', 'upload', $counts['withdrawals']],
-            ['admin-methods', 'admin/methods.php', 'Payment methods', 'card'],
-            ['admin-ledger', 'admin/transactions.php', 'Ledger', 'list'],
+        t('Money') => [
+            ['admin-deposits', 'admin/deposits.php', t('Deposits'), 'download', $counts['deposits']],
+            ['admin-withdrawals', 'admin/withdrawals.php', t('Withdrawals'), 'upload', $counts['withdrawals']],
+            ['admin-methods', 'admin/methods.php', t('Payment methods'), 'card'],
+            ['admin-ledger', 'admin/transactions.php', t('Ledger'), 'list'],
         ],
-        'Game' => [
-            ['admin-pool', 'admin/bubbles.php', 'Pool & queue', 'bubbles'],
-            ['admin-ads', 'admin/ads.php', 'Ad campaigns', 'megaphone', $counts['campaigns']],
-            ['admin-users', 'admin/users.php', 'Members', 'users'],
+        t('Game') => [
+            ['admin-pool', 'admin/bubbles.php', t('Pool & queue'), 'bubbles'],
+            ['admin-ads', 'admin/ads.php', t('Ad campaigns'), 'megaphone', $counts['campaigns']],
+            ['admin-users', 'admin/users.php', t('Members'), 'users'],
         ],
-        'System' => [
-            ['admin-settings', 'admin/settings.php', 'Settings', 'sliders'],
-            ['admin-logs', 'admin/logs.php', 'Audit log', 'file'],
+        t('System') => [
+            ['admin-settings', 'admin/settings.php', t('Settings'), 'sliders'],
+            ['admin-logs', 'admin/logs.php', t('Audit log'), 'file'],
         ],
     ];
 }

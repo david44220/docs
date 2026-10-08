@@ -7,36 +7,6 @@
  */
 declare(strict_types=1);
 
-const LANDING_LANGUAGES = ['fr', 'en'];
-
-/**
- * Language of the landing: ?lang= (remembered in a cookie), then the cookie,
- * then the browser — English when it prefers English, French otherwise
- * (the mockup's rule).
- */
-function landing_language(): string
-{
-    $asked = query('lang');
-    if (in_array($asked, LANDING_LANGUAGES, true)) {
-        if (!headers_sent()) {
-            setcookie('bubble_lang', $asked, [
-                'expires'  => time() + 365 * 86400,
-                'path'     => base_path() === '' ? '/' : base_path() . '/',
-                'secure'   => is_https(),
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]);
-        }
-        return $asked;
-    }
-    $saved = $_COOKIE['bubble_lang'] ?? '';
-    if (is_string($saved) && in_array($saved, LANDING_LANGUAGES, true)) {
-        return $saved;
-    }
-    $accept = strtolower(trim((string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '')));
-    return str_starts_with($accept, 'en') ? 'en' : 'fr';
-}
-
 /** "160 %" in French, "160%" in English (one decimal when needed). */
 function landing_percent(int $part, int $whole, string $lang): string
 {
@@ -50,11 +20,7 @@ function landing_percent(int $part, int $whole, string $lang): string
 /** "1,60 $" in French, "$1.60" in English. */
 function landing_money(int $units, string $lang): string
 {
-    if ($lang !== 'fr') {
-        return money($units);
-    }
-    // strtr swaps both separators at once ("1,234.50" → "1 234,50").
-    return strtr(money($units, false), ['.' => ',', ',' => ' ']) . ' ' . setting('currency_symbol', '$');
+    return with_lang($lang, static fn (): string => money($units));
 }
 
 /** The brand as the mockup draws it: first word bold, the rest light ("Bubble" + " Cycler"). */
@@ -98,7 +64,7 @@ function landing_head_tags(string $lang, string $title, string $description): ar
         $tags[] = '<meta property="og:image" content="' . e($origin . asset('img/og.jpg')) . '">';
         $tags[] = '<meta property="og:image:width" content="1200">';
         $tags[] = '<meta property="og:image:height" content="630">';
-        foreach (LANDING_LANGUAGES as $alternate) {
+        foreach (array_keys(LANGUAGES) as $alternate) {
             $tags[] = '<link rel="alternate" hreflang="' . $alternate . '" href="' . e($origin . url('index.php', ['lang' => $alternate])) . '">';
         }
     }
@@ -108,11 +74,17 @@ function landing_head_tags(string $lang, string $title, string $description): ar
 /** The edition labels the design prints on the hero (eyebrow and captions). */
 function cosmic_edition(): array
 {
-    return ['name' => 'COSMIC LOOP', 'number' => '08 / 10', 'code' => landing_initials(site_name()) . ' / 08', 'palette' => 'VIOLET · NÉBULEUSE'];
+    return ['name' => 'COSMIC LOOP', 'number' => '08 / 10', 'code' => landing_initials(site_name()) . ' / 08', 'palette' => t('VIOLET · NEBULA')];
 }
 
 /** Everything the landing template shows, for one language. */
 function landing_page(string $lang, ?array $user): array
+{
+    return with_lang($lang, static fn (): array => landing_page_copy($lang, $user));
+}
+
+/** landing_page() in the page's language (so t() and money() follow $lang). */
+function landing_page_copy(string $lang, ?array $user): array
 {
     $copy = (require APP_DIR . '/lang/landing.php')[$lang];
     $site = site_name();

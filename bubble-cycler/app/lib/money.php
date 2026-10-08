@@ -7,7 +7,10 @@ declare(strict_types=1);
 
 const MONEY_SCALE = 1000000;
 
-/** Format micro-units for display: 1600000 → "$1.60", 12500 → "$0.0125". */
+/**
+ * Format micro-units for display in the current language:
+ * 1600000 → "$1.60" (English) / "1,60 $" (French); 12500 → "$0.0125".
+ */
 function money(int|string|null $units, bool $symbol = true): string
 {
     $units = (int) $units;
@@ -17,9 +20,10 @@ function money(int|string|null $units, bool $symbol = true): string
     $fraction = rtrim(str_pad((string) ($scaled % 10000), 4, '0', STR_PAD_LEFT), '0');
     $fraction = str_pad($fraction, 2, '0');
 
-    $text = number_format($whole) . '.' . $fraction;
-    if ($symbol) {
-        $text = setting('currency_symbol', '$') . $text;
+    if (lang() === 'fr') {
+        $text = number_format($whole, 0, ',', "\u{202F}") . ',' . $fraction . ($symbol ? "\u{00A0}" . setting('currency_symbol', '$') : '');
+    } else {
+        $text = ($symbol ? setting('currency_symbol', '$') : '') . number_format($whole) . '.' . $fraction;
     }
     return ($negative ? '−' : '') . $text;
 }
@@ -104,23 +108,16 @@ function method_fee_label(array $method): string
 {
     $parts = [];
     if ((int) $method['fee_percent_bp'] > 0) {
-        $parts[] = bp_to_input($method['fee_percent_bp']) . '%';
+        $parts[] = percent((int) $method['fee_percent_bp'] / 100, 2);
     }
     if ((int) $method['fee_fixed'] > 0) {
         $parts[] = money($method['fee_fixed']);
     }
-    return $parts ? implode(' + ', $parts) : 'No fee';
+    return $parts ? implode(' + ', $parts) : t('No fee');
 }
 
-/** Share as a percentage string: pct(1, 3) → "33.3%". */
+/** Share as a percentage string in the current language: pct(1, 3) → "33.3%" / "33,3 %". */
 function pct(int|float $part, int|float $whole, int $decimals = 1): string
 {
-    if ($whole <= 0) {
-        return '0%';
-    }
-    $text = number_format($part / $whole * 100, $decimals);
-    if (str_contains($text, '.')) {
-        $text = rtrim(rtrim($text, '0'), '.');
-    }
-    return $text . '%';
+    return percent($whole <= 0 ? 0 : $part / $whole * 100, $decimals);
 }

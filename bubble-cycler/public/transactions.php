@@ -18,8 +18,8 @@ $pager = paginate((int) val("SELECT COUNT(*) FROM transactions WHERE $where", $p
 $items = rows("SELECT * FROM transactions WHERE $where ORDER BY id DESC LIMIT {$pager['limit']} OFFSET {$pager['offset']}", $params);
 
 render('user/transactions', [
-    'title'   => 'History',
-    'eyebrow' => 'Every movement on your account',
+    'title'   => t('History'),
+    'eyebrow' => t('Every movement on your account'),
     'page'    => 'transactions',
     'wallet'  => $wallet,
     'items'   => $items,

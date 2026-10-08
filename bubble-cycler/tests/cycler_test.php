@@ -325,8 +325,13 @@ for ($i = 0; $i < 5; $i++) { password_reset_request('carol@example.com'); }
 eq(substr_count((string) file_get_contents(STORAGE_DIR . '/logs/mail.log'), 'To: <carol@example.com>'), 3, 'at most three reset emails per member and hour');
 throws(fn () => password_reset_request('carol@example.com'), 'reset requests are rate limited per IP', 'Too many');
 settings_save(['notify_members' => '0']);
-check(!notify_member($b, 'x', 'x', ['x']), 'member notifications can be switched off');
-check(notify_member($b, 'Security', 'Security', ['x'], security: true), 'security notices are always sent');
+$note = static fn (): array => ['subject' => t('Your password was changed'), 'title' => t('Your password was changed'), 'lines' => [t('If this was not you, contact support immediately.')]];
+check(!notify_member($b, $note), 'member notifications can be switched off');
+check(notify_member($b, $note, security: true), 'security notices are always sent');
+q("UPDATE users SET lang = 'fr' WHERE id = ?", [$b]);
+check(notify_member($b, $note, security: true) && str_contains(mail_log_text(), 'Votre mot de passe a été modifié'), 'emails are written in the member’s language');
+eq(lang(), 'en', 'the request language is restored after a French email');
+q("UPDATE users SET lang = 'en' WHERE id = ?", [$b]);
 settings_save(['mail_transport' => 'off', 'notify_members' => '1']);
 
 echo "== helpers\n";

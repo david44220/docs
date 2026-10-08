@@ -9,8 +9,8 @@ $logs = rows(
 );
 
 render('admin/logs', [
-    'title'      => 'Audit log',
-    'eyebrow'    => 'Every admin action',
+    'title'      => t('Audit log'),
+    'eyebrow'    => t('Every admin action'),
     'page'       => 'admin-logs',
     'admin_area' => true,
     'logs'       => $logs,

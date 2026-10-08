@@ -51,14 +51,14 @@ function wallet_move(
 
     $current = row("SELECT `$column` AS balance FROM users WHERE id = ? FOR UPDATE", [$userId]);
     if ($current === null) {
-        throw new AppError('Member not found.');
+        throw new AppError(t('Member not found.'));
     }
     $balance = (int) $current['balance'] + $amount;
     if ($balance < 0) {
         throw new AppError(match ($wallet) {
-            'purchase' => 'Insufficient purchase balance.',
-            'cash'     => 'Insufficient cash balance.',
-            default    => 'Not enough ad credits.',
+            'purchase' => t('Insufficient purchase balance.'),
+            'cash'     => t('Insufficient cash balance.'),
+            default    => t('Not enough ad credits.'),
         });
     }
 
@@ -109,7 +109,7 @@ function wallet_credit_many(string $wallet, string $type, array $lines): void
     $values = [];
     foreach ($lines as [$userId, $amount, $description, $refType, $refId]) {
         if (!isset($balances[$userId])) {
-            throw new AppError('Member not found.');
+            throw new AppError(t('Member not found.'));
         }
         if ($amount <= 0) {
             throw new InvalidArgumentException('wallet_credit_many() only takes positive amounts.');
@@ -134,17 +134,22 @@ function ledger_amount(array $tx): string
 {
     $amount = (int) $tx['amount'];
     if ($tx['wallet'] === 'ads') {
-        return ($amount > 0 ? '+' : ($amount < 0 ? '−' : '')) . number_format(abs($amount)) . ' cr';
+        return ($amount > 0 ? '+' : ($amount < 0 ? '−' : '')) . t('{n} cr', ['n' => num(abs($amount))]);
     }
     return money_signed($amount);
 }
 
 function ledger_balance(array $tx): string
 {
-    return $tx['wallet'] === 'ads' ? number_format((int) $tx['balance_after']) . ' cr' : money($tx['balance_after']);
+    return $tx['wallet'] === 'ads' ? t('{n} cr', ['n' => num($tx['balance_after'])]) : money($tx['balance_after']);
 }
 
 function tx_label(string $type): string
 {
-    return TX_TYPES[$type] ?? ucfirst(str_replace('_', ' ', $type));
+    return isset(TX_TYPES[$type]) ? t(TX_TYPES[$type]) : ucfirst(str_replace('_', ' ', $type));
+}
+
+function wallet_label(string $wallet): string
+{
+    return isset(WALLET_LABELS[$wallet]) ? t(WALLET_LABELS[$wallet]) : $wallet;
 }

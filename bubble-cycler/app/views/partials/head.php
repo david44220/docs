@@ -8,7 +8,7 @@
  * @var bool $indexable    public marketing pages only; everything else is noindex
  */
 $pageTitle = isset($title) && $title !== '' && $title !== site_name() ? $title . ' · ' . site_name() : site_name();
-$metaDescription = $description ?? site_name() . ' — buy bubbles, watch the pool fill them in queue order, and advertise with the credits every bubble includes.';
+$metaDescription = $description ?? t('{site} — buy bubbles, watch the pool fill them in queue order, and advertise with the credits every bubble includes.', ['site' => site_name()]);
 $indexable ??= false;
 $origin = mail_base_url() !== '' ? (string) preg_replace('#^(https?://[^/]+).*$#i', '$1', mail_base_url()) : '';
 ?>
@@ -46,4 +46,6 @@ $origin = mail_base_url() !== '' ? (string) preg_replace('#^(https?://[^/]+).*$#
 <?php foreach ($scripts ?? [] as $script): ?>
 <script src="<?= e(asset($script)) ?>" defer></script>
 <?php endforeach; ?>
+<?php /* Texts and number formats for app.js, in the page language (a data block: never executed). */ ?>
+<script type="application/json" id="i18n"><?= json_encode(js_i18n(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <script src="<?= e(asset('js/app.js')) ?>" defer></script>

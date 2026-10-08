@@ -18,8 +18,8 @@ $new = query_int('new');
 $highlight = $new > 0 ? row('SELECT first_bubble, last_bubble FROM purchases WHERE id = ? AND user_id = ?', [$new, $uid]) : null;
 
 render('user/bubbles', [
-    'title'     => 'My bubbles',
-    'eyebrow'   => number_format($stats['active']) . ' rising · ' . number_format($stats['expired']) . ' expired',
+    'title'     => t('My bubbles'),
+    'eyebrow'   => tn('{n} rising', '{n} rising', $stats['active']) . ' · ' . tn('{n} expired', '{n} expired', $stats['expired']),
     'page'      => 'bubbles',
     'tab'       => $tab,
     'pool'      => $pool,

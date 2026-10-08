@@ -25,8 +25,8 @@ if ($referrals !== []) {
 $active = (int) val('SELECT COUNT(*) FROM users WHERE referrer_id = ? AND bubbles_bought > 0', [$uid]);
 
 render('user/referrals', [
-    'title'     => 'Referrals',
-    'eyebrow'   => 'Invite friends',
+    'title'     => t('Referrals'),
+    'eyebrow'   => t('Invite friends'),
     'page'      => 'referrals',
     'user'      => $user,
     'link'      => absolute_url('register.php', ['ref' => $user['username']]),

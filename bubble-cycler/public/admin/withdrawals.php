@@ -3,7 +3,8 @@ require __DIR__ . '/../../app/bootstrap.php';
 
 $admin = require_admin();
 $aid = (int) $admin['id'];
-$statuses = ['pending' => 'Pending', 'paid' => 'Paid', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'all' => 'All'];
+$filterNames = ['pending' => 'Pending', 'paid' => 'Paid', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'all' => 'All']; // English: stored in the audit log
+$statuses = array_map(static fn (string $name): string => t($name), $filterNames);
 $status = array_key_exists(query('status'), $statuses) ? query('status') : 'pending';
 
 if (is_post()) {
@@ -11,13 +12,13 @@ if (is_post()) {
     try {
         if (post('action') === 'paid') {
             withdrawal_mark_paid($aid, $id, post('txid'), post('note'));
-            flash('success', sprintf('Withdrawal #%d marked as paid.', $id));
+            flash('success', t('Withdrawal #{id} marked as paid.', ['id' => num($id)]));
         } elseif (post('action') === 'reject') {
             if (post('note') === '') {
-                throw new AppError('Give the member a reason for the rejection.');
+                throw new AppError(t('Give the member a reason for the rejection.'));
             }
             withdrawal_refund($id, 'rejected', $aid, post('note'));
-            flash('success', sprintf('Withdrawal #%d rejected and refunded.', $id));
+            flash('success', t('Withdrawal #{id} rejected and refunded.', ['id' => num($id)]));
         }
     } catch (AppError $e) {
         flash('error', $e->getMessage());
@@ -40,7 +41,7 @@ if ($search !== '') {
 }
 $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 if (query('export') === 'csv') {
-    admin_log($aid, 'export.withdrawals', 'Exported withdrawals (' . $statuses[$status] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
+    admin_log($aid, 'export.withdrawals', 'Exported withdrawals (' . $filterNames[$status] . ($search !== '' ? ', search “' . $search . '”' : '') . ')');
     csv_export('withdrawals', "SELECT w.*, u.username, u.email FROM withdrawals w STRAIGHT_JOIN users u ON u.id = w.user_id $sqlWhere ORDER BY w.id", $params, [
         'ID'              => static fn (array $w) => $w['id'],
         'Created (UTC)'   => static fn (array $w) => $w['created_at'],
@@ -81,8 +82,8 @@ foreach (rows('SELECT status, COUNT(*) AS n FROM withdrawals GROUP BY status') a
 $counts['all'] = array_sum($counts);
 
 render('admin/withdrawals', [
-    'title'       => 'Withdrawals',
-    'eyebrow'     => 'Manual payouts',
+    'title'       => t('Withdrawals'),
+    'eyebrow'     => t('Manual payouts'),
     'page'        => 'admin-withdrawals',
     'admin_area'  => true,
     'statuses'    => $statuses,

@@ -69,19 +69,19 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
     $maxActive = setting_int('max_active_bubbles');
 
     if ($price <= 0 || $share <= 0 || $target <= 0) {
-        throw new AppError('Bubble sales are not configured yet. Please try again later.');
+        throw new AppError(t('Bubble sales are not configured yet. Please try again later.'));
     }
     if ($quantity < 1) {
-        throw new AppError('Choose at least one bubble.');
+        throw new AppError(t('Choose at least one bubble.'));
     }
     if ($maxPerPurchase > 0 && $quantity > $maxPerPurchase) {
-        throw new AppError(sprintf('You can buy up to %d bubbles at once.', $maxPerPurchase));
+        throw new AppError(t('You can buy up to {max} bubbles at once.', ['max' => num($maxPerPurchase)]));
     }
     if (!in_array($wallet, ['purchase', 'cash'], true)) {
-        throw new AppError('Choose a balance to pay with.');
+        throw new AppError(t('Choose a balance to pay with.'));
     }
     if ($wallet === 'cash' && !setting_bool('allow_cash_purchase')) {
-        throw new AppError('Buying with your cash balance is currently disabled.');
+        throw new AppError(t('Buying with your cash balance is currently disabled.'));
     }
 
     return tx(function () use ($userId, $quantity, $wallet, $adToken, $price, $share, $target, $referralCut, $creditsEach, $maxActive): array {
@@ -92,17 +92,13 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
         }
         $user = row('SELECT * FROM users WHERE id = ? FOR UPDATE', [$userId]);
         if ($user === null || $user['status'] !== 'active') {
-            throw new AppError('Your account cannot buy bubbles right now.');
+            throw new AppError(t('Your account cannot buy bubbles right now.'));
         }
 
         if ($maxActive > 0) {
             $active = (int) val("SELECT COUNT(*) FROM bubbles WHERE user_id = ? AND status = 'active'", [$userId]);
             if ($active + $quantity > $maxActive) {
-                throw new AppError(sprintf(
-                    'Members can hold up to %d active bubbles. You have %d.',
-                    $maxActive,
-                    $active
-                ));
+                throw new AppError(t('Members can hold up to {max} active bubbles. You have {active}.', ['max' => num($maxActive), 'active' => num($active)]));
             }
         }
 
@@ -111,12 +107,11 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
         $total = $price * $quantity;
         $column = WALLETS[$wallet];
         if ((int) $user[$column] < $total) {
-            throw new AppError(sprintf(
-                'Your %s is %s — you need %s for %s.',
-                strtolower(WALLET_LABELS[$wallet]),
-                money($user[$column]),
-                money($total),
-                plural($quantity, 'bubble')
+            throw new AppError(tn(
+                'Your {wallet} is {balance} — you need {total} for {n} bubble.',
+                'Your {wallet} is {balance} — you need {total} for {n} bubbles.',
+                $quantity,
+                ['wallet' => mb_strtolower(wallet_label($wallet)), 'balance' => money($user[$column]), 'total' => money($total)]
             ));
         }
 
@@ -140,6 +135,7 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
             'created_at'   => $now,
         ]);
 
+        // Ledger lines are stored in English and translated when shown (stored_text()).
         $label = $quantity === 1 ? 'Bubble #' . number_format($first) : sprintf('Bubbles #%s–#%s', number_format($first), number_format($last));
         wallet_move($userId, $wallet, -$total, 'bubble_purchase', $label . ' bought', 'purchase', $purchaseId);
 
@@ -158,7 +154,7 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
 
         q('UPDATE users SET bubbles_bought = bubbles_bought + ? WHERE id = ?', [$quantity, $userId]);
         if ($credits > 0) {
-            wallet_move($userId, 'ads', $credits, 'ad_credits', 'Advertising credits included with ' . plural($quantity, 'bubble'), 'purchase', $purchaseId);
+            wallet_move($userId, 'ads', $credits, 'ad_credits', 'Advertising credits included with ' . stored_count($quantity, '{n} bubble', '{n} bubbles'), 'purchase', $purchaseId);
         }
 
         // Referral commission, paid out of the platform share.
@@ -171,7 +167,7 @@ function buy_bubbles(int $userId, int $quantity, string $wallet, string $adToken
                     wallet_move($referrerId, 'cash', $referralPaid, 'referral', sprintf(
                         '%s bought %s',
                         $user['username'],
-                        plural($quantity, 'bubble')
+                        stored_count($quantity, '{n} bubble', '{n} bubbles')
                     ), 'purchase', $purchaseId);
                     q('UPDATE users SET total_ref_earned = total_ref_earned + ? WHERE id = ?', [$referralPaid, $referrerId]);
                 }
@@ -275,7 +271,7 @@ function pool_process(): array
             $lines[] = [
                 $bubble['user_id'],
                 $bubble['target'],
-                sprintf('Bubble #%s expired at %s', number_format($bubble['id']), money($bubble['target'])),
+                sprintf('Bubble #%s expired at %s', number_format($bubble['id']), stored_money($bubble['target'])),
                 'bubble',
                 $bubble['id'],
             ];
@@ -299,7 +295,7 @@ function pool_process(): array
 function pool_inject(int $adminId, int $amount, string $note = ''): array
 {
     if ($amount <= 0) {
-        throw new AppError('Enter a positive amount to add to the pool.');
+        throw new AppError(t('Enter a positive amount to add to the pool.'));
     }
     return tx(function () use ($adminId, $amount, $note): array {
         row('SELECT id FROM pool WHERE id = 1 FOR UPDATE');
@@ -308,8 +304,8 @@ function pool_inject(int $adminId, int $amount, string $note = ''): array
         $popped = pool_process();
         admin_log($adminId, 'pool.inject', trim(sprintf(
             'Added %s to the pool, %s expired. %s',
-            money($amount),
-            plural(count($popped), 'bubble'),
+            stored_money($amount),
+            stored_count(count($popped), '{n} bubble', '{n} bubbles'),
             $note
         )));
         return $popped;

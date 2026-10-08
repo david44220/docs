@@ -8,10 +8,10 @@ if (is_post() && post('action') === 'inject') {
     try {
         $amount = to_payment_units(post('amount'));
         if ($amount === null || $amount <= 0) {
-            throw new AppError('Enter a positive amount, e.g. 10 or 1.60.');
+            throw new AppError(t('Enter a positive amount, e.g. 10 or 1.60.'));
         }
         $popped = pool_inject((int) $admin['id'], $amount, post('note'));
-        flash('success', sprintf('%s added to the pool — %s expired.', money($amount), plural(count($popped), 'bubble')));
+        flash('success', tn('{amount} added to the pool — {n} bubble expired.', '{amount} added to the pool — {n} bubbles expired.', count($popped), ['amount' => money($amount)]));
     } catch (AppError $e) {
         flash('error', $e->getMessage());
     }
@@ -40,8 +40,8 @@ $bubbles = rows(
 );
 
 render('admin/bubbles', [
-    'title'      => 'Pool & queue',
-    'eyebrow'    => 'FIFO cycler',
+    'title'      => t('Pool & queue'),
+    'eyebrow'    => t('FIFO cycler'),
     'page'       => 'admin-pool',
     'admin_area' => true,
     'tab'        => $tab,

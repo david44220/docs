@@ -7,7 +7,7 @@ $icons = ['success' => 'check', 'error' => 'alert', 'warning' => 'alert', 'info'
         <div class="toast toast--<?= e($type) ?>" role="<?= $type === 'error' ? 'alert' : 'status' ?>"<?= $type === 'pop' ? ' data-celebrate' : '' ?>>
             <span class="toast__icon"><?= icon($icons[$type]) ?></span>
             <p class="toast__text"><?= e($flash['message']) ?></p>
-            <button class="toast__close" type="button" data-toast-close aria-label="Dismiss"><?= icon('x') ?></button>
+            <button class="toast__close" type="button" data-toast-close aria-label="<?= e(t('Dismiss')) ?>"><?= icon('x') ?></button>
         </div>
     <?php endforeach; ?>
 </div>

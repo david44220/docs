@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS users (
   totp_recovery    TEXT         NULL,   -- JSON list of hashed recovery codes
   totp_last_step   BIGINT       NULL,   -- last accepted code (anti-replay)
   totp_enabled_at  DATETIME     NULL,
+  lang             CHAR(2)      NULL,     -- preferred language (en, fr): pages and emails
   created_at       DATETIME     NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_username (username),

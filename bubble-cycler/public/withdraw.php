@@ -22,7 +22,7 @@ if (is_post()) {
     if (post('action') === 'cancel') {
         try {
             withdrawal_refund((int) post('id'), 'cancelled', null, 'Cancelled by member', $uid);
-            flash('success', 'Withdrawal cancelled — the amount is back in your cash balance.');
+            flash('success', t('Withdrawal cancelled — the amount is back in your cash balance.'));
         } catch (AppError $e) {
             flash('error', $e->getMessage());
         }
@@ -31,7 +31,7 @@ if (is_post()) {
     $form = ['amount' => post('amount'), 'account' => post('account')];
     try {
         $id = withdrawal_create($uid, (int) post('method_id'), $form['amount'], $form['account']);
-        flash('success', sprintf('Withdrawal #%d requested. You will see it marked as paid once it is sent.', $id));
+        flash('success', t('Withdrawal #{id} requested. You will see it marked as paid once it is sent.', ['id' => num($id)]));
         redirect(url('withdraw.php'));
     } catch (AppError $e) {
         $error = $e->getMessage();
@@ -53,8 +53,8 @@ $history = rows(
 );
 
 render('user/withdraw', [
-    'title'   => 'Withdraw',
-    'eyebrow' => 'Cash out your earnings',
+    'title'   => t('Withdraw'),
+    'eyebrow' => t('Cash out your earnings'),
     'page'    => 'withdraw',
     'user'    => current_user(true),
     'methods' => $methods,

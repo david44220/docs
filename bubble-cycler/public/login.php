@@ -11,7 +11,7 @@ $next = post('next', query('next'));
 $step = query('step') === 'code' ? 'code' : 'password';
 $pending = $step === 'code' ? pending_two_factor() : null;
 if ($step === 'code' && $pending === null) {
-    flash('info', 'Please sign in again.');
+    flash('info', t('Please sign in again.'));
     redirect(url('login.php'));
 }
 
@@ -30,7 +30,7 @@ if (is_post() && $step === 'password') {
             redirect(url('login.php', ['step' => 'code']));
         }
         login_user($user);
-        flash('success', 'Welcome back, ' . $user['username'] . '!');
+        flash('success', t('Welcome back, {user}!', ['user' => $user['username']]));
         redirect($landing($user, $next));
     } catch (AppError $e) {
         $error = $e->getMessage();
@@ -40,7 +40,7 @@ if (is_post() && $step === 'password') {
 if (is_post() && $pending !== null) {
     try {
         $next = complete_two_factor(post('code'));
-        flash('success', 'Welcome back, ' . $pending['username'] . '!');
+        flash('success', t('Welcome back, {user}!', ['user' => $pending['username']]));
         redirect($landing($pending, $next));
     } catch (AppError $e) {
         $error = $e->getMessage();
@@ -52,7 +52,7 @@ if (is_post() && $pending !== null) {
 }
 
 render('auth/login', [
-    'title'   => $step === 'code' ? 'Two-factor authentication' : 'Sign in',
+    'title'   => $step === 'code' ? t('Two-factor authentication') : t('Sign in'),
     'error'   => $error,
     'login'   => $login,
     'next'    => $next,

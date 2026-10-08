@@ -6,7 +6,10 @@ Members buy **$1.00 bubbles**, **$0.80** of each purchase goes into a first-in-f
 purchase**. Deposits and withdrawals use **manual payment methods that you manage from the admin panel**.
 
 The interface is the **Cosmic Loop design (edition 08)**: the landing page reproduces the mockup element for element,
-in French and English, and the same art direction runs through the sign-in pages, the member area and the admin panel.
+and the same art direction runs through the sign-in pages, the member area and the admin panel.
+
+The whole app is **in English by default and fully translated into French**: visitors from France and French-speaking
+browsers get French automatically, and everyone can switch with one click (see [Languages](#languages)).
 
 ![Landing page](docs/screenshots/landing.jpg)
 
@@ -41,6 +44,8 @@ in French and English, and the same art direction runs through the sign-in pages
 - **Two-factor authentication** (any authenticator app, QR code, 10 one-time recovery codes), **password reset by
   email**, and email notices when a deposit is approved or a withdrawal is sent.
 - Celebration when bubbles expire, toasts, keyboard-accessible UI, works on phones, installable on the home screen.
+- **English and French** everywhere — pages, emails, error messages, dates, numbers and amounts — chosen
+  automatically (country, then browser) and remembered on the member's account.
 
 **Admin panel**
 - Overview: members, pool, platform revenue, pending work, a 14-day chart of bubbles bought/expired, a money
@@ -55,14 +60,14 @@ in French and English, and the same art direction runs through the sign-in pages
 - **Ad campaigns**: moderation (approve / reject / pause / delete) and free, unlimited house ads.
 - **Settings**: every number of the economy, ad timer and credits, limits, registrations, maintenance mode,
   timezone, currency symbol, **email (SMTP)** with a test button, **security** (two-factor required for admins,
-  sign-ups per IP), risk disclaimer, terms and privacy policy.
+  sign-ups per IP), risk disclaimer, terms and privacy policy (each with an optional French version).
 - **CSV exports** of deposits, withdrawals, the ledger and members (safe to open in Excel).
 - **Audit log** of every admin action.
 
 **Design** — the Cosmic Loop design system (edition 08): deep-space background, violet accent, the nebula artwork,
 Inter only with large, tightly tracked headlines, micro uppercase labels led by an accent rule, pill buttons with arrow
-glyphs, square hairline panels and circles for icons. The landing page (French and English, chosen from `?lang=`, a
-cookie, then the browser language) is the mockup's markup and stylesheet unchanged; the sign-in pages, member area,
+glyphs, square hairline panels and circles for icons. The landing page (English and French) is the mockup's markup
+and stylesheet unchanged; the sign-in pages, member area,
 admin panel, legal, error and install pages extend the same rules (`public/assets/css/app.css`). Bubbles are CSS glass
 spheres that fill with violet liquid and turn gold when they expire. Self-hosted font, responsive down to 320 px,
 respects `prefers-reduced-motion`.
@@ -130,6 +135,45 @@ check that **every cent is accounted for** after each scenario.
 Withdrawals are taken from the cash balance as soon as they are requested. The admin sends the payment by hand and
 clicks **Mark as paid** (with the payment reference), or **Reject** to refund it. Members can cancel pending requests.
 All payment amounts are in whole cents.
+
+---
+
+## Languages
+
+English is the default language; every screen, email, error message and notice is also available in French.
+
+**How the language is chosen** (first match wins):
+
+1. a language picked with the switch (`?lang=en` / `?lang=fr`) — remembered for a year in the `bubble_lang` cookie
+   and on the member's account;
+2. that cookie;
+3. the language saved on the member's account (set at sign-up, so it follows members to every device);
+4. the visitor's country, when the hosting provides it: **France and French overseas territories → French**
+   (FR, GP, MQ, GF, RE, YT, PM, BL, MF, NC, PF, WF, and Monaco). Headers read: `CF-IPCountry` (Cloudflare),
+   `CloudFront-Viewer-Country`, `X-AppEngine-Country`, `X-Country-Code`, and `GEOIP_COUNTRY_CODE` /
+   `X-GeoIP-Country` (Apache/nginx GeoIP modules);
+5. the browser's `Accept-Language` (French when it is the best supported language);
+6. English.
+
+Behind Cloudflare, turn on *IP Geolocation* (Network settings) so `CF-IPCountry` is sent. Pages answer with
+`Content-Language` and `Vary: Accept-Language, Cookie`.
+
+**Where to switch**: the `EN | FR` switch in the member and admin sidebar, and the pill next to the home link on the
+landing, sign-in, legal, error and install pages.
+
+**What changes with the language**: every text; dates (`Oct 8, 2026` / `8 oct. 2026`), numbers (`1,234` / `1 234`),
+amounts (`$1.60` / `1,60 $`) and percentages (`12.5%` / `12,5 %`), including the live figures computed in the
+browser. Emails are written in the **recipient's** language (admin notifications in the admin's). Ledger lines and the
+audit log are stored in English and shown in the reader's language.
+
+**Your own texts**: *Admin → Settings → Legal* has an English and a French field for the risk disclaimer, the terms and
+the privacy policy. An empty French field falls back to the French translation of the default text (or your English
+text if you wrote one). Payment methods, house ads and campaign texts are shown as you type them.
+
+**Translations** live in `app/lang/fr.php` (English text → French text). `php tools/i18n-check.php` lists every text
+the app can show and fails if one has no translation, if a `{placeholder}` is lost, or if a template still contains
+untranslated text. To add a language: add it to `LANGUAGES` in `app/lib/i18n.php`, create `app/lang/xx.php` and
+the landing copy in `app/lang/landing.php`.
 
 ---
 
@@ -271,9 +315,11 @@ bubble-cycler/
 │   │   ├── export.php         streamed CSV exports
 │   │   ├── migrations.php     database versions and upgrades
 │   │   ├── auth.php, admin.php, settings.php, money.php, db.php, ui.php, uploads.php, helpers.php
+│   │   ├── i18n.php           languages: detection, t()/tn(), local dates, numbers and amounts
 │   │   ├── landing.php        landing page data (language, copy, settings) for the Cosmic Loop template
 │   │   └── installer.php
-│   ├── lang/landing.php       landing copy, French and English
+│   ├── lang/fr.php            French translations (English text → French text)
+│   ├── lang/landing.php       landing copy, English and French
 │   └── views/                 layouts, partials and page templates (public/landing.php = the mockup's markup)
 ├── bin/admin.php              command-line tools for the operator
 ├── database/schema.sql        tables (run automatically by the installer)
@@ -283,7 +329,7 @@ bubble-cycler/
 ├── public/                    web root: one PHP file per page, admin/, assets/
 ├── storage/                   sessions, logs and uploaded payment screenshots (private)
 ├── tests/                     CLI test suites
-└── tools/                     landing DOM check (dom-sig.php, render-landing.php)
+└── tools/                     translation check (i18n-check.php), landing DOM check (dom-sig.php, render-landing.php)
 ```
 
 Pages follow the same pattern: `public/<page>.php` handles the request and calls
@@ -316,12 +362,14 @@ The suites run against a throw-away database whose name **must end with `_test`*
 
 ```bash
 export BUBBLE_TEST_DB=bubble_test BUBBLE_TEST_USER=root BUBBLE_TEST_PASS=secret
-php tests/cycler_test.php   # 279 checks: FIFO maths, batch payouts, ad gate, payments, campaigns, 2FA, resets, migrations
+php tests/cycler_test.php   # 281 checks: FIFO maths, batch payouts, ad gate, payments, campaigns, 2FA, resets, migrations
 php tests/stress_test.php   # 13 parallel processes, then every accounting invariant
-php tests/http_test.php     # 190 checks: every page and form through a real web server (needs the curl extension)
+php tests/http_test.php     # 218 checks: every page and form through a real web server, both languages (needs curl)
 php tests/smtp_test.php     # SMTP client against a local fake server: STARTTLS, AUTH, dot-stuffing, errors
 php tests/load_test.php     # HTTP load: members buy, deposit and withdraw while an admin approves (args: members seconds)
 ```
+
+`php tools/i18n-check.php` (no database needed) checks that every text has its French translation.
 
 The landing template is checked against the frozen mockup: rendered with the mockup's texts (`fixtures/landing.php`),
 its DOM must match the mockup's exactly — every element, class and text.
@@ -341,9 +389,15 @@ running balance, that the queue stayed in strict order and that each expired bub
 Script de « bubble cycler » complet en **PHP pur** + MySQL : bulle à 1 $, 0,80 $ versés dans un pool FIFO, chaque
 bulle expire à 1,60 $, crédits publicitaires offerts à chaque achat, publicité obligatoire (10 s, vérifiée côté serveur)
 avant chaque achat, méthodes de dépôt/retrait manuelles gérées depuis le panneau admin, validation des dépôts avec
-capture d'écran, design « Cosmic Loop » (édition 08) : page d'accueil en français et en anglais reproduite à
-l'identique de la maquette, même direction artistique pour la connexion, l'espace membre, l'admin, les pages légales et
-d'erreur. Installation : pointer la racine web sur `public/`, créer une base MySQL,
+capture d'écran, design « Cosmic Loop » (édition 08) : page d'accueil reproduite à l'identique de la maquette, même
+direction artistique pour la connexion, l'espace membre, l'admin, les pages légales et d'erreur.
+
+Application **en anglais par défaut et entièrement traduite en français** : les visiteurs situés en France (et dans
+les départements et territoires d'outre-mer) ou dont le navigateur est en français la voient automatiquement en
+français ; un sélecteur EN | FR permet de changer, et le choix est mémorisé (cookie et compte du membre). Dates,
+nombres et montants au format français, e-mails dans la langue du destinataire, textes légaux personnalisables en
+français dans *Admin → Réglages → Mentions légales*. Traductions : `app/lang/fr.php`, vérifiées par
+`php tools/i18n-check.php`. Installation : pointer la racine web sur `public/`, créer une base MySQL,
 ouvrir `/install.php`. Pensez à activer vos méthodes de paiement réelles et à vérifier la législation de votre pays.
 
 Prêt pour la production : double authentification (application d'authentification + codes de secours, obligatoire

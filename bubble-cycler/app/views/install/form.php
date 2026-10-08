@@ -6,28 +6,29 @@
  * @var array $form
  */
 ?><!doctype html>
-<html lang="en">
+<html lang="<?= e(lang()) ?>">
 <head>
-<?= partial('head', ['title' => 'Install']) ?>
+<?= partial('head', ['title' => t('Install')]) ?>
 </head>
 <body class="install-page cosmic-app theme-violet">
 <div class="backdrop" aria-hidden="true"><img src="<?= e(asset('img/hero-08.webp')) ?>" alt=""></div>
+<div class="corner-lang"><?= partial('lang-switch') ?></div>
 <main class="install">
     <header class="install__head">
-        <p class="eyebrow"><span class="eyebrow__line"></span>Installation <span class="eyebrow__dot">·</span> 3 steps</p>
-        <h1>Install your <span class="text-iris">bubble cycler.</span></h1>
-        <p class="muted">Three minutes: connect MySQL, name your site, create the admin account.</p>
+        <p class="eyebrow"><span class="eyebrow__line"></span><?= e(t('Installation')) ?> <span class="eyebrow__dot">·</span> <?= e(t('3 steps')) ?></p>
+        <h1><?= e(t('Install your')) ?> <span class="text-iris"><?= e(t('bubble cycler.')) ?></span></h1>
+        <p class="muted"><?= e(t('Three minutes: connect MySQL, name your site, create the admin account.')) ?></p>
     </header>
 
     <section class="card">
-        <h2 class="card__title">Server check</h2>
+        <h2 class="card__title"><?= e(t('Server check')) ?></h2>
         <ul class="checklist">
             <?php foreach ($requirements as $label => $passed): ?>
                 <li class="<?= $passed ? 'is-ok' : 'is-bad' ?>"><?= icon($passed ? 'check' : 'x') ?> <?= e($label) ?></li>
             <?php endforeach; ?>
         </ul>
         <?php if (!$ready): ?>
-            <div class="alert alert--danger"><?= icon('alert') ?><div>Fix the items above (install the PHP extensions, make <code>app/</code> and <code>storage/</code> writable) and reload this page.</div></div>
+            <div class="alert alert--danger"><?= icon('alert') ?><div><?= e(t('Fix the items above (install the PHP extensions, make app/ and storage/ writable) and reload this page.')) ?></div></div>
         <?php endif; ?>
     </section>
 
@@ -37,32 +38,32 @@
             <div class="alert alert--danger" role="alert"><?= icon('alert') ?><div><?= e($error) ?></div></div>
         <?php endif; ?>
 
-        <h2 class="card__title">1 · Database</h2>
-        <p class="card__sub">Create an empty MySQL / MariaDB database (utf8mb4) and a user with full rights on it.</p>
+        <h2 class="card__title">1 · <?= e(t('Database')) ?></h2>
+        <p class="card__sub"><?= e(t('Create an empty MySQL / MariaDB database (utf8mb4) and a user with full rights on it.')) ?></p>
         <div class="field-row field-row--3">
-            <label class="field"><span class="field__label">Host</span><input class="input" name="db_host" value="<?= e($form['db_host']) ?>" required></label>
-            <label class="field"><span class="field__label">Port</span><input class="input" name="db_port" value="<?= e($form['db_port']) ?>" inputmode="numeric" required></label>
-            <label class="field"><span class="field__label">Database name</span><input class="input" name="db_name" value="<?= e($form['db_name']) ?>" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Host')) ?></span><input class="input" name="db_host" value="<?= e($form['db_host']) ?>" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Port')) ?></span><input class="input" name="db_port" value="<?= e($form['db_port']) ?>" inputmode="numeric" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Database name')) ?></span><input class="input" name="db_name" value="<?= e($form['db_name']) ?>" required></label>
         </div>
         <div class="field-row">
-            <label class="field"><span class="field__label">User</span><input class="input" name="db_user" value="<?= e($form['db_user']) ?>" required></label>
-            <label class="field"><span class="field__label">Password</span><input class="input" type="password" name="db_pass" autocomplete="new-password"></label>
+            <label class="field"><span class="field__label"><?= e(t('User')) ?></span><input class="input" name="db_user" value="<?= e($form['db_user']) ?>" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Password')) ?></span><input class="input" type="password" name="db_pass" autocomplete="new-password"></label>
         </div>
 
-        <h2 class="card__title">2 · Site</h2>
+        <h2 class="card__title">2 · <?= e(t('Site')) ?></h2>
         <div class="field-row">
-            <label class="field"><span class="field__label">Site name</span><input class="input" name="site_name" value="<?= e($form['site_name']) ?>" maxlength="40" required></label>
-            <label class="field"><span class="field__label">Public URL <small class="muted">optional</small></span><input class="input" name="base_url" value="<?= e($form['base_url']) ?>" placeholder="https://example.com"></label>
+            <label class="field"><span class="field__label"><?= e(t('Site name')) ?></span><input class="input" name="site_name" value="<?= e($form['site_name']) ?>" maxlength="40" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Public URL')) ?> <small class="muted"><?= e(t('optional')) ?></small></span><input class="input" name="base_url" value="<?= e($form['base_url']) ?>" placeholder="https://example.com"></label>
         </div>
 
-        <h2 class="card__title">3 · Admin account</h2>
+        <h2 class="card__title">3 · <?= e(t('Admin account')) ?></h2>
         <div class="field-row field-row--3">
-            <label class="field"><span class="field__label">Username</span><input class="input" name="admin_username" value="<?= e($form['admin_username']) ?>" pattern="[A-Za-z0-9_]{3,20}" required></label>
-            <label class="field"><span class="field__label">Email</span><input class="input" type="email" name="admin_email" value="<?= e($form['admin_email']) ?>" required></label>
-            <label class="field"><span class="field__label">Password</span><input class="input" type="password" name="admin_password" minlength="8" autocomplete="new-password" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Username')) ?></span><input class="input" name="admin_username" value="<?= e($form['admin_username']) ?>" pattern="[A-Za-z0-9_]{3,20}" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Email')) ?></span><input class="input" type="email" name="admin_email" value="<?= e($form['admin_email']) ?>" required></label>
+            <label class="field"><span class="field__label"><?= e(t('Password')) ?></span><input class="input" type="password" name="admin_password" minlength="8" autocomplete="new-password" required></label>
         </div>
 
-        <button class="btn btn--primary btn--lg btn--block" type="submit"<?= $ready ? '' : ' disabled' ?>>Install<span class="btn__glyph" aria-hidden="true">↗</span></button>
+        <button class="btn btn--primary btn--lg btn--block" type="submit"<?= $ready ? '' : ' disabled' ?>><?= e(t('Install')) ?><span class="btn__glyph" aria-hidden="true">↗</span></button>
     </form>
 </main>
 </body>

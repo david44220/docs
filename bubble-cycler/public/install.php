@@ -8,7 +8,7 @@ require __DIR__ . '/../app/bootstrap.php';
 require APP_DIR . '/lib/installer.php';
 
 if (is_installed()) {
-    abort(403, 'The site is already installed. To run the installer again, delete storage/installed.lock first.');
+    abort(403, t('The site is already installed. To run the installer again, delete storage/installed.lock first.'));
 }
 
 $requirements = install_requirements();
@@ -33,10 +33,10 @@ if (is_post() && $ready) {
     $adminPass = is_string($_POST['admin_password'] ?? null) ? $_POST['admin_password'] : '';
     try {
         if (!preg_match('/^\d{2,5}$/', $form['db_port'])) {
-            throw new AppError('Database port must be a number, usually 3306.');
+            throw new AppError(t('Database port must be a number, usually 3306.'));
         }
         if ($form['db_name'] === '' || $form['db_user'] === '') {
-            throw new AppError('Enter the database name and user.');
+            throw new AppError(t('Enter the database name and user.'));
         }
         $created = install_run(
             ['host' => $form['db_host'], 'port' => (int) $form['db_port'], 'name' => $form['db_name'], 'user' => $form['db_user'], 'pass' => $dbPass],
@@ -48,7 +48,7 @@ if (is_post() && $ready) {
     } catch (AppError $e) {
         $error = $e->getMessage();
     } catch (PDOException $e) {
-        $error = 'Database error: ' . $e->getMessage();
+        $error = t('Database error: {message}', ['message' => $e->getMessage()]);
     }
 }
 

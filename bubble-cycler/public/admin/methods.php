@@ -19,21 +19,21 @@ if (is_post()) {
                 $input[$field] = post($field);
             }
             payment_method_save($aid, $id > 0 ? $id : null, $type, $input);
-            flash('success', $id > 0 ? 'Method updated.' : 'Method created.' . ($input['status'] === 'inactive' ? ' It is inactive until you enable it.' : ' Members can use it right away.'));
+            flash('success', $id > 0 ? t('Method updated.') : ($input['status'] === 'inactive' ? t('Method created. It is inactive until you enable it.') : t('Method created. Members can use it right away.')));
             redirect(url('admin/methods.php', ['type' => $type]));
         }
         $method = payment_method($id, $type, false);
         if ($method === null) {
-            throw new AppError('Payment method not found.');
+            throw new AppError(t('Payment method not found.'));
         }
         if ($action === 'toggle') {
             $next = $method['status'] === 'active' ? 'inactive' : 'active';
             q('UPDATE payment_methods SET status = ?, updated_at = ? WHERE id = ?', [$next, now(), $id]);
             admin_log($aid, 'method.' . ($next === 'active' ? 'enable' : 'disable'), sprintf('%s method #%d “%s”', ucfirst($type), $id, $method['name']));
-            flash('success', sprintf('“%s” is now %s.', $method['name'], $next));
+            flash('success', $next === 'active' ? t('“{name}” is now active.', ['name' => $method['name']]) : t('“{name}” is now inactive.', ['name' => $method['name']]));
         } elseif ($action === 'delete') {
             payment_method_delete($aid, $id);
-            flash('success', sprintf('“%s” deleted. Past requests keep their history.', $method['name']));
+            flash('success', t('“{name}” deleted. Past requests keep their history.', ['name' => $method['name']]));
         }
     } catch (AppError $e) {
         if ($action === 'save') {
@@ -83,8 +83,8 @@ $form ??= [
 ];
 
 render('admin/methods', [
-    'title'      => 'Payment methods',
-    'eyebrow'    => 'Manual deposits & withdrawals',
+    'title'      => t('Payment methods'),
+    'eyebrow'    => t('Manual deposits & withdrawals'),
     'page'       => 'admin-methods',
     'admin_area' => true,
     'type'       => $type,

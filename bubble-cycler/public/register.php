@@ -19,20 +19,20 @@ if (is_post() && $open) {
     try {
         // Honeypot: humans never see or fill the "website" field.
         if (post('website') !== '') {
-            throw new AppError('Registration failed. Please try again.');
+            throw new AppError(t('Registration failed. Please try again.'));
         }
         if ($password !== $confirm) {
-            throw new AppError('The two passwords do not match.');
+            throw new AppError(t('The two passwords do not match.'));
         }
         if (empty($_POST['terms'])) {
-            throw new AppError('Please confirm you have read the terms and the risk disclosure.');
+            throw new AppError(t('Please confirm you have read the terms and the risk disclosure.'));
         }
         rate_limit('register', client_ip(), setting_int('max_registrations_per_ip'), 86400,
-            'Too many accounts were created from your network today. Please try again tomorrow.');
+            t('Too many accounts were created from your network today. Please try again tomorrow.'));
         $id = register_user($form['username'], $form['email'], $password, $referrer !== null ? (int) $referrer['id'] : null);
         login_user(row_required('SELECT * FROM users WHERE id = ?', [$id]));
         unset($_SESSION['ref']);
-        flash('success', 'Welcome to ' . site_name() . '! Make a deposit to blow your first bubble.');
+        flash('success', t('Welcome to {site}! Make a deposit to blow your first bubble.', ['site' => site_name()]));
         redirect(url('dashboard.php'));
     } catch (AppError $e) {
         $error = $e->getMessage();
@@ -40,7 +40,7 @@ if (is_post() && $open) {
 }
 
 render('auth/register', [
-    'title'    => 'Create your account',
+    'title'    => t('Create your account'),
     'error'    => $error,
     'form'     => $form,
     'referrer' => $referrer,

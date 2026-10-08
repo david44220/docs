@@ -48,8 +48,8 @@ $items = rows(
 );
 
 render('admin/transactions', [
-    'title'      => 'Ledger',
-    'eyebrow'    => 'Every balance movement',
+    'title'      => t('Ledger'),
+    'eyebrow'    => t('Every balance movement'),
     'page'       => 'admin-ledger',
     'admin_area' => true,
     'type'       => $type,

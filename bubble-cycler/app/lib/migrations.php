@@ -5,7 +5,7 @@
  */
 declare(strict_types=1);
 
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function db_version(): int
 {
@@ -25,7 +25,7 @@ function migrate(): void
     try {
         settings_all(true);
         $version = db_version();
-        $steps = [2 => 'migration_2'];
+        $steps = [2 => 'migration_2', 3 => 'migration_3'];
         foreach ($steps as $target => $step) {
             if ($version < $target) {
                 $step();
@@ -77,5 +77,13 @@ function migration_2(): void
     }
     if (!index_exists('users', 'idx_users_register_ip')) {
         db()->exec('ALTER TABLE users ADD KEY idx_users_register_ip (register_ip)');
+    }
+}
+
+/** v2 → v3: each member's language (English or French) for pages and emails. */
+function migration_3(): void
+{
+    if (!column_exists('users', 'lang')) {
+        db()->exec('ALTER TABLE users ADD COLUMN `lang` CHAR(2) NULL AFTER totp_enabled_at');
     }
 }

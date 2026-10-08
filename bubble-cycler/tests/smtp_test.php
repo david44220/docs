@@ -85,7 +85,7 @@ try {
     check(str_contains($e->getMessage(), 'authentication failed') && str_contains($e->getMessage(), '535'), 'wrong password reported: ' . $e->getMessage());
     check(!str_contains($e->getMessage(), 'wrong-password') && !str_contains($e->getMessage(), base64_encode("\0mailer\0wrong-password-123")), 'the password never appears in the error');
 }
-check(!notify_email('member@example.com', 'x', 'x', ['x']), 'notifications fail softly (logged, no exception)');
+check(!notify_email('member@example.com', null, static fn (): array => ['subject' => 'x', 'title' => 'x', 'lines' => ['x']]), 'notifications fail softly (logged, no exception)');
 settings_save(['smtp_password' => seal_secret('secret pass'), 'smtp_port' => '1']);
 try {
     send_mail('member@example.com', 'Should fail', 'x');

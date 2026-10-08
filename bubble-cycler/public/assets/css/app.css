@@ -965,6 +965,7 @@ a.adcreative:hover { border-color: var(--accent); transform: translateY(-4px); c
 .settings__icon--blue { --tone: var(--info); }
 .settings__icon--violet { --tone: var(--accent); }
 .settings__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 20px; }
+.settings__grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .settings__head .card__title .badge { margin-left: 8px; vertical-align: 3px; }
 .settings__inline-action { display: flex; justify-content: flex-end; }
 .alert__list { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
@@ -1067,6 +1068,27 @@ a.adcreative:hover { border-color: var(--accent); transform: translateY(-4px); c
 }
 .header-pill:hover { opacity: 1; }
 .header-pill span { font-size: 14px; }
+
+/* ---------- Language switches: the landing's pill as a link, and EN | FR in the sidebar ---------- */
+.lang-switch {
+  display: inline-flex; align-items: center; justify-content: center; gap: 11px; min-height: 40px; min-width: 76px; padding: 0 14px;
+  border: 1px solid currentColor; border-radius: 999px; font-size: 12px; font-weight: 560; letter-spacing: .045em; white-space: nowrap;
+  opacity: .88; transition: opacity .2s ease;
+}
+.lang-switch:hover { opacity: 1; }
+.lang-switch span { font-size: 14px; }
+.corner-lang { position: fixed; top: 22px; right: 22px; z-index: 5; color: var(--ink); }
+.sidebar__lang {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 14px;
+  font-size: 10px; font-weight: 650; letter-spacing: .16em; text-transform: uppercase; color: var(--faint);
+}
+.lang-choice { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
+.lang-choice__item {
+  display: inline-grid; place-items: center; min-width: 38px; min-height: 26px; padding: 0 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 650; letter-spacing: .08em; color: var(--muted); transition: background .2s ease, color .2s ease;
+}
+.lang-choice__item:hover { color: var(--ink); background: var(--wash); }
+.lang-choice__item.is-active { color: #081018; background: var(--accent); }
 .doc__facts { padding: 4px 20px; border: 1px solid var(--line); }
 .doc__facts dd { color: var(--ink); }
 
@@ -1086,6 +1108,7 @@ a.adcreative:hover { border-color: var(--accent); transform: translateY(-4px); c
     linear-gradient(180deg, rgba(7, 4, 15, .6), transparent 24%);
 }
 .auth__top { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 40px; }
+.auth__actions { display: flex; align-items: center; gap: 10px; }
 .auth__home { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 14px; border: 1px solid currentColor; border-radius: 999px; font-size: 12px; font-weight: 560; letter-spacing: .045em; opacity: .88; transition: opacity .2s ease; }
 .auth__home:hover { opacity: 1; }
 .auth__home span { font-size: 14px; }
@@ -1247,6 +1270,9 @@ a.adcreative:hover { border-color: var(--accent); transform: translateY(-4px); c
 }
 @media (max-width: 640px) {
   .header-pill { display: none; }
+  .lang-switch, .auth__home { min-height: 36px; padding: 0 10px; font-size: 11px; }
+  .lang-switch { min-width: 66px; }
+  .corner-lang { top: 16px; right: 16px; }
 }
 @media (max-width: 440px) {
   .grid--4 { gap: 12px; }
@@ -1264,7 +1290,7 @@ a.adcreative:hover { border-color: var(--accent); transform: translateY(-4px); c
 }
 @media (max-width: 480px) {
   /* Long labels wrap instead of running past the pill. */
-  .btn--block, .btn--lg, .btn--xl { white-space: normal; text-align: center; line-height: 1.3; padding-top: 12px; padding-bottom: 12px; }
+  .btn--block, .btn--lg, .btn--xl, .settings__inline-action .btn { white-space: normal; text-align: center; line-height: 1.3; padding-top: 12px; padding-bottom: 12px; }
 }
 @media (max-width: 560px) {
   .celebrate > div:nth-child(2) { flex: 1 1 0; }
@@ -1272,6 +1298,8 @@ a.adcreative:hover { border-color: var(--accent); transform: translateY(-4px); c
   .celebrate h2 { font-size: 19px; }
   /* Review panels: status and close button move above the title instead of squeezing it. */
   .card__head:has(> div:not(.row) + .row) { flex-wrap: wrap; }
+  /* A title and a button share the head only while both fit (longer French labels). */
+  .card__head:has(> div:not(.row) + .btn) { flex-wrap: wrap; }
   .card__head > div:not(.row) + .row { order: -1; flex-basis: 100%; justify-content: space-between; }
 }
 @media (max-width: 340px) {

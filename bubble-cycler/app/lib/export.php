@@ -41,7 +41,7 @@ function csv_export(string $filename, string $sql, array $params, array $columns
         throw new RuntimeException('Cannot open the output stream.');
     }
     fwrite($out, "\xEF\xBB\xBF"); // byte order mark: Excel then reads UTF-8 correctly
-    fputcsv($out, array_keys($columns), ',', '"', '');
+    fputcsv($out, array_map(static fn (string $heading): string => t($heading), array_keys($columns)), ',', '"', '');
 
     // Unbuffered: rows go out as they are read, whatever the table size.
     db()->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
@@ -59,5 +59,5 @@ function csv_export(string $filename, string $sql, array $params, array $columns
 function csv_link(string $page, array $query): string
 {
     return '<a class="btn btn--secondary btn--sm" href="' . e(url($page, $query + ['export' => 'csv'])) . '" download>'
-        . icon('download') . ' Export CSV</a>';
+        . icon('download') . ' ' . e(t('Export CSV')) . '</a>';
 }
